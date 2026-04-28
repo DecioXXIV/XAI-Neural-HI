@@ -67,7 +67,7 @@ if __name__ == "__main__":
         logger.info("Model testing completed successfully!\n")
         
         logger.info(f"PHASE 4 -> DATA & METADATA HANDLING")
-        if KEEP_CROPS == "false": remove_subdirectories(EXPERIMENT_FT_DIR, DATASET, CLASSES)
+        if not KEEP_CROPS: remove_subdirectories(EXPERIMENT_FT_DIR, DATASET, CLASSES)
         
         add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_TESTING", str(datetime.now()))
         torch.cuda.empty_cache()

@@ -9,6 +9,10 @@ from src.utils.logger import Logger
 
 logger = Logger()
 
+def str_to_bool(value):
+    if value == "true": return True
+    elif value == "false": return False
+
 ### ################ ###
 ### SETUP EXPERIMENT ###
 ### ################ ###
@@ -48,12 +52,12 @@ def get_ft_args():
     parser.add_argument("-lr_scheduler", type=str, required=True, choices=LR_SCHEDULERS)
     parser.add_argument("-lr_final_decay_ratio", type=float, default=0.01)
     parser.add_argument("-label_smoothing", type=float, default=0.0)
-    parser.add_argument("-early_stopping", type=str, default="true")
+    parser.add_argument("-early_stopping", type=str, default="true", choices=["true", "false"])
     parser.add_argument("-train_replicas", type=int, default=1)
     parser.add_argument("-random_seed", type=int, default=None)
     parser.add_argument("-epochs", type=int, default=50)
     parser.add_argument("-ft_mode", type=str, required=True, choices=FT_MODES)
-    parser.add_argument("-keep_crops", type=str, default="false")
+    parser.add_argument("-keep_crops", type=str, default="false", choices=["true", "false"])
     return _validate_ft_args(parser.parse_args())
 
 def _validate_ft_args(args):
@@ -91,15 +95,9 @@ def _validate_ft_args(args):
         logger.critical("random_seed must be a non-negative integer")
         error_trigger = True
     
-    early_stopping, keep_crops = args.early_stopping.lower(), args.keep_crops.lower()
-    if early_stopping not in ["true", "false"]:
-        logger.critical("early_stopping must be 'true' or 'false'")
-        error_trigger = True
-    if keep_crops not in ["true", "false"]:
-        logger.critical("keep_crops must be 'true' or 'false'")
-        error_trigger = True
-    
     if error_trigger: sys.exit()
+    
+    early_stopping, keep_crops = str_to_bool(args.early_stopping.lower()), str_to_bool(args.keep_crops.lower())
     
     if random_seed is None:
         random_seed = int(np.random.randint(0, 2**32 - 1))

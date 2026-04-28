@@ -32,7 +32,7 @@ def build_classification_head(input_dim: int, n_classes: int, layers: List[str])
         else:
             logger.warning(f"Unrecognized layer token '{token}' in classification head configuration. Skipping this token.")
         
-        modules.append(layer)
+        if layer is not None: modules.append(layer)
     
     # Add final classification layer
     final_layer = nn.Linear(current_dim, n_classes)

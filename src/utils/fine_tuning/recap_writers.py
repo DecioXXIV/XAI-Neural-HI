@@ -53,10 +53,10 @@ class TrainingRecapWriter:
             best_val_epoch = np.where(np.array(values["val"]) == best_val_metric)[0][0] + 1
             
             metric_recap_dict["training_infos"]["train_set"][f"optimal_{metric}_value"] = best_train_metric
-            metric_recap_dict["training_infos"]["train_set"][f"epoch_optimal_{metric}_epoch"] = f"{best_train_epoch}//{len(values['train'])}"
+            metric_recap_dict["training_infos"]["train_set"][f"epoch_optimal_{metric}"] = f"{best_train_epoch}//{len(values['train'])}"
             
             metric_recap_dict["training_infos"]["val_set"][f"optimal_{metric}_value"] = best_val_metric
-            metric_recap_dict["training_infos"]["val_set"][f"epoch_optimal_{metric}_epoch"] = f"{best_val_epoch}//{len(values['val'])}"
+            metric_recap_dict["training_infos"]["val_set"][f"epoch_optimal_{metric}"] = f"{best_val_epoch}//{len(values['val'])}"
             
         with open(os.path.join(self.history_dir, "training_recap.json"), "w") as f:
             json.dump(metric_recap_dict, f, indent=4)
