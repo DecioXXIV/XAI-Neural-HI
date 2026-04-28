@@ -5,8 +5,7 @@ from torch.utils.data import DataLoader
 from src.utils.models.model_loader import ModelLoader
 from src.utils.models.model_trainer import ModelTrainer
 from src.utils.models.model_tester import ModelTester
-from src.utils.fine_tuning.training_recap_writer import TrainingRecapWriter
-from src.utils.fine_tuning.testing_recap_writer import TestingRecapWriter
+from src.utils.fine_tuning.recap_writers import TrainingRecapWriter, TestingRecapWriter
 
 def load_model(experiment_id: str, model_name: str, classes: List[str], ft_mode: str, phase: str, ft_metadata: Dict[str, Any]) -> Tuple[nn.Module, Dict[str, Any]]:
     model_loader = ModelLoader(experiment_id, model_name, classes, ft_mode, phase, ft_metadata)
