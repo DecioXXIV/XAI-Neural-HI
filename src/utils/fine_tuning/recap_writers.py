@@ -12,6 +12,8 @@ from src.utils.logger import Logger
 
 logger = Logger()
 
+METRIC_SERIES = ["losses", "accs", "macrof1s", "weightedf1s"]
+
 class TrainingRecapWriter:
     def __init__(self, experiment_id: str):
         self.experiment_id = experiment_id
@@ -23,9 +25,11 @@ class TrainingRecapWriter:
         metric_recap_dict["training_infos"]["train_set"] = {}
         metric_recap_dict["training_infos"]["val_set"] = {}
         
-        for metric_serie in ["losses", "accs"]:
+        for metric_serie in METRIC_SERIES:
             if metric_serie == "losses": metric = "loss"
             elif metric_serie == "accs": metric = "accuracy"
+            elif metric_serie == "macrof1s": metric = "macro_f1"
+            elif metric_serie == "weightedf1s": metric = "weighted_f1"
             
             values = {"train": [], "val": []}
             for phase in values.keys():
@@ -39,22 +43,30 @@ class TrainingRecapWriter:
             elif metric_serie == "accs":
                 best_train_metric = np.max(values["train"])
                 best_val_metric = np.max(values["val"])
+            elif metric_serie == "macrof1s":
+                best_train_metric = np.max(values["train"])
+                best_val_metric = np.max(values["val"])
+            elif metric_serie == "weightedf1s":
+                best_train_metric = np.max(values["train"])
+                best_val_metric = np.max(values["val"])
             best_train_epoch = np.where(np.array(values["train"]) == best_train_metric)[0][0] + 1
             best_val_epoch = np.where(np.array(values["val"]) == best_val_metric)[0][0] + 1
             
-            metric_recap_dict["training_infos"]["train_set"][f"optimal_{metric}_value"] = best_train_metric, 4
+            metric_recap_dict["training_infos"]["train_set"][f"optimal_{metric}_value"] = best_train_metric
             metric_recap_dict["training_infos"]["train_set"][f"epoch_optimal_{metric}_epoch"] = f"{best_train_epoch}//{len(values['train'])}"
             
-            metric_recap_dict["training_infos"]["val_set"][f"optimal_{metric}_value"] = best_val_metric, 4
+            metric_recap_dict["training_infos"]["val_set"][f"optimal_{metric}_value"] = best_val_metric
             metric_recap_dict["training_infos"]["val_set"][f"epoch_optimal_{metric}_epoch"] = f"{best_val_epoch}//{len(values['val'])}"
             
         with open(os.path.join(self.history_dir, "training_recap.json"), "w") as f:
             json.dump(metric_recap_dict, f, indent=4)
     
     def _plot_metric_recaps(self):
-        for metric_serie in ["losses", "accs"]:
+        for metric_serie in METRIC_SERIES:
             if metric_serie == "losses": metric = "loss"
             elif metric_serie == "accs": metric = "accuracy"
+            elif metric_serie == "macrof1s": metric = "macro_f1"
+            elif metric_serie == "weightedf1s": metric = "weighted_f1"
             
             values = {"train": [], "val": []}
             for phase in values.keys():

@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 from typing import Dict, Any, Tuple
 from tqdm import tqdm
+from sklearn.metrics import f1_score
 from torch.optim import Optimizer, SGD, Adam, AdamW
 from torch.optim.lr_scheduler import LRScheduler, CosineAnnealingLR
 from torch.utils.data import DataLoader
@@ -26,6 +27,7 @@ class ModelTrainer:
         self.ft_metadata = ft_metadata
         self.last_cp = last_cp
 
+        self.metric = ft_metadata["HYPERPARAMETERS"]["metric"]
         self.optimizer_type = ft_metadata["HYPERPARAMETERS"]["optimizer"]
         self.lr = ft_metadata["HYPERPARAMETERS"]["lr"]
         self.scheduler_type = ft_metadata["HYPERPARAMETERS"]["lr_scheduler"]
@@ -34,19 +36,19 @@ class ModelTrainer:
         self.num_epochs = ft_metadata["HYPERPARAMETERS"]["total_epochs"]
 
         if self.use_early_stopping:
-            self.early_stopping = EarlyStopping(patience=10, delta=0.0, max_epochs=200)
-            self.max_epochs = self.early_stopping.max_epochs
+            self.max_epochs = 200
+            self.early_stopping = EarlyStopping(metric=self.metric, patience=10, delta=0.0, max_epochs=self.max_epochs)
         else:
             self.early_stopping = None
             self.max_epochs = self.num_epochs
 
-    def _set_optimizer(self) -> Optimizer:
+    def _set_optimizer(self, weight_decay: float) -> Optimizer:
         if self.optimizer_type.lower() == "sgd":
-            optimizer = SGD(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.lr, momentum=0.9, nesterov=False, weight_decay=0.0001)
+            optimizer = SGD(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.lr, momentum=0.9, nesterov=False, weight_decay=weight_decay)
         elif self.optimizer_type.lower() == "adam":
-            optimizer = Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.lr, betas=[0.9, 0.999], weight_decay=0.0001)
+            optimizer = Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.lr, betas=[0.9, 0.999], weight_decay=weight_decay)
         elif self.optimizer_type.lower() == "adamw":
-            optimizer = AdamW(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.lr, betas=[0.9, 0.999], weight_decay=0.01)
+            optimizer = AdamW(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.lr, betas=[0.9, 0.999], weight_decay=weight_decay)
         else:
             raise ValueError(f"Optimizer '{self.optimizer_type}' not recognized!")
 
@@ -68,11 +70,10 @@ class ModelTrainer:
 
         return scheduler
 
-    def _reset_scheduler(self, scheduler: LRScheduler) -> LRScheduler:
-        last_epoch = self.ft_metadata["FINE_TUNING_DETAILS"].get("EPOCHS_COMPLETED", 0)
-        scheduler.T_max = self.max_epochs - last_epoch
-        scheduler.eta_min = self.lr * self.lr_final_decay_ratio * 0.1
-        return scheduler
+    def _reset_scheduler(self, optimizer: Optimizer) -> LRScheduler:
+        t_max = self.max_epochs - self.num_epochs
+        eta_min = self.lr * self.lr_final_decay_ratio * 0.1
+        return CosineAnnealingLR(optimizer, t_max, eta_min, last_epoch=-1)
 
     def _compute_minibatch_accuracy(self, output: torch.Tensor, label: torch.Tensor) -> Tuple[int, float]:
         max_index = output.argmax(dim=1)
@@ -80,9 +81,10 @@ class ModelTrainer:
         correct_ratio = correct / label.size(0)
         return correct, correct_ratio
 
-    def _train_one_epoch(self, optimizer: Optimizer, criterion: nn.Module) -> Tuple[float, float]:
+    def _train_one_epoch(self, optimizer: Optimizer, criterion: nn.Module) -> Tuple[float, float, float, float]:
         self.model.train()
         epoch_loss, epoch_acc, total_samples = 0.0, 0.0, 0
+        ds_output, ds_target = [], []
         pbar = tqdm(self.train_dl, desc="Training", dynamic_ncols=True)
 
         for data, target in pbar:
@@ -97,17 +99,20 @@ class ModelTrainer:
             epoch_loss += loss.item() * bs
             epoch_acc += correct
             total_samples += bs
+            ds_output.extend(np.argmax(output.detach().cpu().numpy(), axis=1))
+            ds_target.extend(target.cpu().numpy())
 
             loss.backward()
             optimizer.step()
 
             pbar.set_postfix(loss=epoch_loss / total_samples, accuracy=epoch_acc / total_samples, refresh=True)
 
-        return epoch_loss / total_samples, epoch_acc / total_samples
+        return epoch_loss / total_samples, epoch_acc / total_samples, f1_score(ds_target, ds_output, average='macro'), f1_score(ds_target, ds_output, average='weighted')
 
-    def _validate_one_epoch(self, criterion: nn.Module) -> Tuple[float, float]:
+    def _validate_one_epoch(self, criterion: nn.Module) -> Tuple[float, float, float, float]:
         self.model.eval()
         val_loss, val_acc, total_samples = 0.0, 0.0, 0
+        ds_output, ds_target = [], []
         pbar = tqdm(self.val_dl, desc="Validation", dynamic_ncols=True)
 
         with torch.no_grad():
@@ -122,29 +127,30 @@ class ModelTrainer:
                 val_loss += loss.item() * bs
                 val_acc += correct
                 total_samples += bs
+                ds_output.extend(np.argmax(output.cpu().numpy(), axis=1))
+                ds_target.extend(target.cpu().numpy())
 
                 pbar.set_postfix(loss=val_loss / total_samples, accuracy=val_acc / total_samples, refresh=True)
 
-        return val_loss / total_samples, val_acc / total_samples
+        return val_loss / total_samples, val_acc / total_samples, f1_score(ds_target, ds_output, average='macro'), f1_score(ds_target, ds_output, average='weighted')
 
     def __call__(self):
         self.model.to(self.device)
-        criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
-        optimizer = self._set_optimizer()
+        criterion = nn.CrossEntropyLoss(label_smoothing=self.ft_metadata["HYPERPARAMETERS"]["label_smoothing"])
+        optimizer = self._set_optimizer(weight_decay=self.ft_metadata["HYPERPARAMETERS"]["weight_decay"])
         scheduler = self._set_scheduler(optimizer)
 
         history_handler = HistoryHandler(self.experiment_id)
-        train_loss = history_handler.load_history("train_losses.pkl")
-        val_loss = history_handler.load_history("val_losses.pkl")
-        train_acc = history_handler.load_history("train_accs.pkl")
-        val_acc = history_handler.load_history("val_accs.pkl")
-        learning_rates = history_handler.load_history("learning_rates.pkl")
+        history = history_handler.load_history()
 
-        min_loss_t = np.min(train_loss) if train_loss else sys.maxsize
-        min_loss_v = np.min(val_loss) if val_loss else sys.maxsize
+        lower_is_better = self.metric == "loss"
+        default_best = np.inf if lower_is_better else -np.inf
+        agg = np.min if lower_is_better else np.max
+        best_metric_t = agg(history["train"][self.metric]) if history["train"][self.metric] else default_best
+        best_metric_v = agg(history["val"][self.metric]) if history["val"][self.metric] else default_best
 
         start_epoch = self.ft_metadata["FINE_TUNING_DETAILS"].get("EPOCHS_COMPLETED", 0) + 1
-        checkpoint_saver = CheckpointSaver(self.experiment_id)
+        checkpoint_saver = CheckpointSaver(self.experiment_id, self.metric)
 
         trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         logger.info(f"Fine-tuning mode: '{self.ft_metadata['HYPERPARAMETERS']['ft_mode']}'")
@@ -152,43 +158,50 @@ class ModelTrainer:
 
         if self.use_early_stopping:
             logger.warning(f"Early Stopping enabled: Max Epochs = {self.max_epochs}")
-            logger.warning(f"Validation Loss check triggers from epoch: {self.num_epochs}")
+            logger.warning(f"Validation {self.metric.capitalize()} check triggers from epoch: {self.num_epochs}")
             if start_epoch > 1:
                 self.early_stopping.load_state_dict(self.last_cp["early_stopping"])
-            self.early_stopping.set_best_val_loss(min_loss_v)
+            self.early_stopping.set_best_val_metric(best_metric_v)
 
         for epoch in range(start_epoch, self.max_epochs + 1):
             logger.info(f"Epoch {epoch} / {self.max_epochs}")
 
             current_lr = optimizer.param_groups[0]["lr"]
-            learning_rates.append(current_lr)
+            if scheduler is not None: logger.info(f"Current Learning Rate: {current_lr}")
+            history["learning_rates"].append(current_lr)
 
-            if scheduler is not None:
-                logger.info(f"Current Learning Rate: {current_lr}")
-                if epoch == self.num_epochs:
-                    scheduler = self._reset_scheduler(scheduler)
+            train_epoch_loss, train_epoch_acc, train_epoch_macrof1, train_epoch_weightedf1 = self._train_one_epoch(optimizer, criterion)
+            logger.info(f"Epoch {epoch} -> Train Loss: {train_epoch_loss}, Train Accuracy: {train_epoch_acc}, Train Macro F1: {train_epoch_macrof1}, Train Weighted F1: {train_epoch_weightedf1}")
+            val_epoch_loss, val_epoch_acc, val_epoch_macrof1, val_epoch_weightedf1 = self._validate_one_epoch(criterion)
+            logger.info(f"Epoch {epoch} -> Val Loss: {val_epoch_loss}, Val Accuracy: {val_epoch_acc}, Val Macro F1: {val_epoch_macrof1}, Val Weighted F1: {val_epoch_weightedf1}")
 
-            train_epoch_loss, train_epoch_acc = self._train_one_epoch(optimizer, criterion)
-            logger.info(f"Epoch {epoch} -> Train Loss: {train_epoch_loss}, Train Accuracy: {train_epoch_acc}")
-            val_epoch_loss, val_epoch_acc = self._validate_one_epoch(criterion)
-            logger.info(f"Epoch {epoch} -> Val Loss: {val_epoch_loss}, Val Accuracy: {val_epoch_acc}")
+            history["train"]["loss"].append(train_epoch_loss)
+            history["train"]["accuracy"].append(train_epoch_acc)
+            history["train"]["macrof1"].append(train_epoch_macrof1)
+            history["train"]["weightedf1"].append(train_epoch_weightedf1)
+            history["val"]["loss"].append(val_epoch_loss)
+            history["val"]["accuracy"].append(val_epoch_acc)
+            history["val"]["macrof1"].append(val_epoch_macrof1)
+            history["val"]["weightedf1"].append(val_epoch_weightedf1)
 
-            train_loss.append(train_epoch_loss)
-            train_acc.append(train_epoch_acc)
-            val_loss.append(val_epoch_loss)
-            val_acc.append(val_epoch_acc)
+            train_metrics = {"loss": train_epoch_loss, "accuracy": train_epoch_acc, "macrof1": train_epoch_macrof1, "weightedf1": train_epoch_weightedf1}
+            val_metrics   = {"loss": val_epoch_loss,   "accuracy": val_epoch_acc,   "macrof1": val_epoch_macrof1,   "weightedf1": val_epoch_weightedf1}
+            train_metric_value, val_metric_value = train_metrics[self.metric], val_metrics[self.metric]
 
-            min_loss_t = min(min_loss_t, train_epoch_loss)
-            min_loss_v = checkpoint_saver(val_epoch_loss, min_loss_v, self.model, optimizer, scheduler, self.early_stopping, "val", check=True)
-            checkpoint_saver(train_epoch_loss, None, self.model, optimizer, scheduler, self.early_stopping, None, check=False)
-
-            history_handler.save_history("train_losses.pkl", train_loss)
-            history_handler.save_history("val_losses.pkl", val_loss)
-            history_handler.save_history("train_accs.pkl", train_acc)
-            history_handler.save_history("val_accs.pkl", val_acc)
-            history_handler.save_history("learning_rates.pkl", learning_rates)
-
-            if scheduler is not None: scheduler.step()
+            best_metric_t = min(best_metric_t, train_metric_value) if lower_is_better else max(best_metric_t, train_metric_value)
+            update_val_best_model = False
+            if lower_is_better:
+                if val_metric_value < best_metric_v:
+                    best_metric_v = val_metric_value
+                    update_val_best_model = True
+            else:
+                if val_metric_value > best_metric_v:
+                    best_metric_v = val_metric_value
+                    update_val_best_model = True
+            
+            if update_val_best_model: checkpoint_saver("val_best_model", self.model, optimizer, scheduler, self.early_stopping)
+            checkpoint_saver("last_checkpoint", self.model, optimizer, scheduler, self.early_stopping)
+            history_handler.save_history(history)
 
             self.ft_metadata["FINE_TUNING_DETAILS"]["EPOCHS_COMPLETED"] = epoch
             ft_metadata_path = os.path.join(METADATA_ROOT, self.experiment_id, "ft-metadata.json")
@@ -196,8 +209,15 @@ class ModelTrainer:
 
             if self.use_early_stopping:
                 if epoch <= self.num_epochs:
-                    self.early_stopping.step_before_trigger(val_epoch_loss)
+                    self.early_stopping.step_before_trigger(val_metric_value)
                 else:
-                    if self.early_stopping.step(val_epoch_loss):
+                    if self.early_stopping.step(val_metric_value):
                         break
+            
+            if scheduler is not None:
+                scheduler.step()
+                if epoch == self.num_epochs:
+                    logger.warning(f"Epoch {epoch} completed: resetting scheduler for the second phase of training (with early stopping)...")
+                    scheduler = self._reset_scheduler(optimizer)
+            
             print()

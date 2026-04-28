@@ -27,17 +27,20 @@ def create_exp_metadata(experiment_id: str, model_name: str, dataset: str, class
     MetadataHandler(exp_metadata_path).save_metadata(exp_metadata)
     logger.info(f"Metadata successfully created for Experiment: '{experiment_id}'\n")
 
-def initialize_ft_metadata(ft_metadata: Dict[str, Any], ft_mh: MetadataHandler, batch_size: int, ch_layers: str, opt: str, lr: float, lr_scheduler: str, lr_final_decay_ratio: float, 
-                           early_stopping: str, crop_size: int, train_replicas: int, random_seed: int, epochs: int, ft_mode: str, keep_crops: str) -> Dict[str, Any]:
+def initialize_ft_metadata(experiment_id: str, ft_metadata: Dict[str, Any], metric: str, ch_layers: str, crop_size: int, batch_size: int, opt: str, lr: float, lr_scheduler: str, lr_final_decay_ratio: float, 
+                           weight_decay: float, label_smoothing: float, early_stopping: str, train_replicas: int, random_seed: int, epochs: int, ft_mode: str) -> Dict[str, Any]:
     if "HYPERPARAMETERS" not in ft_metadata:
-        ft_metadata["HYPERPARAMETERS"] = {"batch_size": batch_size, "ch_layers": ch_layers, "optimizer": opt, "lr": lr,  "lr_scheduler": lr_scheduler, "lr_final_decay_ratio": lr_final_decay_ratio,
-                                          "early_stopping": early_stopping, "crop_size": crop_size ,"train_replicas": train_replicas, 
-                                          "random_seed": random_seed, "total_epochs": epochs, "ft_mode": ft_mode, "keep_crops": keep_crops}
+        ft_metadata["HYPERPARAMETERS"] = {"metric": metric, "ch_layers": ch_layers, "crop_size": crop_size, "batch_size": batch_size, "optimizer": opt, "lr": lr,
+                                          "lr_scheduler": lr_scheduler, "lr_final_decay_ratio": lr_final_decay_ratio, "weight_decay": weight_decay, "label_smoothing": label_smoothing, 
+                                          "early_stopping": early_stopping, "train_replicas": train_replicas, "random_seed": random_seed, "total_epochs": epochs, "ft_mode": ft_mode}
     if "FINE_TUNING_DETAILS" not in ft_metadata: ft_metadata["FINE_TUNING_DETAILS"] = {}
     if "TIMESTAMPS" not in ft_metadata: ft_metadata["TIMESTAMPS"] = {}
     
-    ft_mh.save_metadata(ft_metadata)
-    return ft_metadatadef add_timestamp_to_ft_metadata(experiment_id: str, ft_metadata: Dict[str, Any], key: str, timestamp: Any):
+    ft_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "ft-metadata.json")
+    MetadataHandler(ft_metadata_path).save_metadata(ft_metadata)
+    return ft_metadata
+
+def add_timestamp_to_ft_metadata(experiment_id: str, ft_metadata: Dict[str, Any], key: str, timestamp: Any):
     ft_metadata["TIMESTAMPS"][key] = timestamp
     ft_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "ft-metadata.json")
     MetadataHandler(ft_metadata_path).save_metadata(ft_metadata)
