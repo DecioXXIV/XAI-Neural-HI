@@ -3,8 +3,9 @@ from datetime import datetime
 
 from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.logger import Logger
-from src.utils.metadata.metadata_utils import get_experiment_metadata, get_ft_metadata, initialize_ft_metadata
-from src.utils.fine_tuning.fine_tuning_utils import get_ft_args, create_dataset, get_train_rgb_mean_std, get_dataloader, remove_subdirectories
+from src.utils.cli_parsers import get_ft_args
+from src.utils.metadata.metadata_utils import get_experiment_metadata, get_ft_metadata, initialize_ft_metadata, add_timestamp_to_ft_metadata
+from src.utils.fine_tuning.fine_tuning_utils import create_dataset, get_train_rgb_mean_std, get_dataloader, remove_subdirectories
 from src.utils.models.model_utils import load_model, train_model, test_model
 
 logger = Logger()
@@ -46,8 +47,7 @@ if __name__ == "__main__":
         
         train_model(EXPERIMENT_ID, model, t_dl, v_dl, DEVICE, FT_METADATA, last_cp)
         
-        FT_METADATA["TIMESTAMPS"]["MODEL_FINE_TUNING"] = str(datetime.now())
-        FT_MH.save_metadata(FT_METADATA)
+        add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_FINE_TUNING", str(datetime.now()))
         torch.cuda.empty_cache()
         
         logger.info("Model fine-tuning completed successfully!\n")
@@ -69,8 +69,7 @@ if __name__ == "__main__":
         logger.info(f"PHASE 4 -> DATA & METADATA HANDLING")
         if KEEP_CROPS == "false": remove_subdirectories(EXPERIMENT_FT_DIR, DATASET, CLASSES)
         
-        FT_METADATA["TIMESTAMPS"]["MODEL_TESTING"] = str(datetime.now())
-        FT_MH.save_metadata(FT_METADATA)
+        add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_TESTING", str(datetime.now()))
         torch.cuda.empty_cache()
         
         logger.info(f"*** Experiment: {EXPERIMENT_ID} -> END OF FINE TUNING-PROCESS ***\n")
