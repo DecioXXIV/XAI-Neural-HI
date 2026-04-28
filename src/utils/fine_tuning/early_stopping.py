@@ -10,7 +10,7 @@ class EarlyStopping(object):
         self.patience = patience
         self.delta = delta
         self.max_epochs = max_epochs
-        self.best_val_loss = -np.inf
+        self.best_val_loss = np.inf
         self.patience_counter = 0
         self.early_stop = False
     

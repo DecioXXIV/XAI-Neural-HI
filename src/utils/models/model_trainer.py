@@ -16,7 +16,6 @@ from src.utils.metadata.metadata_handler import MetadataHandler
 
 logger = Logger()
 
-
 class ModelTrainer:
     def __init__(self, experiment_id: str, model: nn.Module, train_dl: DataLoader, val_dl: DataLoader, device: str, ft_metadata: Dict[str, Any], last_cp: Dict[str, Any] | None = None):
         self.experiment_id = experiment_id
@@ -72,7 +71,7 @@ class ModelTrainer:
     def _reset_scheduler(self, scheduler: LRScheduler) -> LRScheduler:
         last_epoch = self.ft_metadata["FINE_TUNING_DETAILS"].get("EPOCHS_COMPLETED", 0)
         scheduler.T_max = self.max_epochs - last_epoch
-        scheduler.eta_min = int(self.lr * self.lr_final_decay_ratio)
+        scheduler.eta_min = self.lr * self.lr_final_decay_ratio * 0.1
         return scheduler
 
     def _compute_minibatch_accuracy(self, output: torch.Tensor, label: torch.Tensor) -> Tuple[int, float]:
@@ -201,3 +200,4 @@ class ModelTrainer:
                 else:
                     if self.early_stopping.step(val_epoch_loss):
                         break
+            print()

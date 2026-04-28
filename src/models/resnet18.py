@@ -73,8 +73,8 @@ class ResNet18(nn.Module):
     @staticmethod
     def build_inference_transforms(mean: List[float], std: List[float], input_size: int=380) -> T.Compose:
         return T.Compose([
-            T.ToTensor(),
             T.Resize((input_size, input_size)),
+            T.ToTensor(),
             T.Normalize(mean, std)
         ])
 

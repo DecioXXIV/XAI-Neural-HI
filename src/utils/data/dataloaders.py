@@ -1,8 +1,8 @@
 import torch
 from abc import ABC, abstractmethod
 from typing import List, Tuple
-from torchvision import datasets
 from torchvision import transforms as T
+from torchvision.datasets import ImageFolder
 from torchvision.transforms import v2
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import WeightedRandomSampler
@@ -19,8 +19,8 @@ class BaseDataLoader(ABC):
         self.std = std_
         self.device = device
     
-    def generate_dataset(self) -> datasets.ImageFolder:
-        dataset = datasets.ImageFolder(root=self.directory, transform=self.compose_transform())
+    def generate_dataset(self) -> ImageFolder:
+        dataset = ImageFolder(root=self.directory, transform=self.compose_transform())
         dataset.samples = sorted(dataset.samples, key=lambda x: x[0])
         dataset.imgs = dataset.samples
         
@@ -29,7 +29,7 @@ class BaseDataLoader(ABC):
         return dataset
     
     @abstractmethod
-    def load_data(self) -> Tuple[datasets.ImageFolder, DataLoader]: pass
+    def load_data(self) -> Tuple[ImageFolder, DataLoader]: pass
     
     @abstractmethod
     def compose_transform(self) -> T.Compose: pass
@@ -54,7 +54,7 @@ class TrainDataLoader(BaseDataLoader):
         for idx, val in enumerate(images): weight[idx] = weight_per_class[val[1]]
         return weight
 
-    def load_data(self) -> Tuple[datasets.ImageFolder, DataLoader]:
+    def load_data(self) -> Tuple[ImageFolder, DataLoader]:
         dataset = self.generate_dataset()
         
         num_workers = 4
@@ -100,7 +100,7 @@ class TestDataLoader(BaseDataLoader):
     def __init__(self, directory: str, classes: List[str], batch_size: int, model_input_size: int, mean_: List[float], std_: List[float], device: str):
         super().__init__(directory, classes, batch_size, model_input_size, mean_, std_, device)
     
-    def load_data(self) -> Tuple[datasets.ImageFolder, DataLoader]:
+    def load_data(self) -> Tuple[ImageFolder, DataLoader]:
         dataset = self.generate_dataset()
         
         num_workers = 4

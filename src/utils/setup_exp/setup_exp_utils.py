@@ -34,13 +34,13 @@ def create_exp_metadata(experiment_id: str, model_name: str, dataset: str, class
     exp_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "general-metadata.json")
     
     if os.path.exists(exp_metadata_path):
-        logger.warning(f"Experiment ID '{experiment_id}' already exists. Please choose a unique experiment ID.")
+        logger.warning(f"Experiment ID '{experiment_id}' already exists. Please choose a unique experiment ID.\n")
         sys.exit()
     
     mh = MetadataHandler(exp_metadata_path)
     exp_metadata = {"EXPERIMENT_ID": experiment_id, "MODEL_NAME": model_name, "DATASET": dataset, "CLASSES": classes}
     mh.save_metadata(exp_metadata)
-    logger.info(f"Metadata successfully created for Experiment: '{experiment_id}'")
+    logger.info(f"Metadata successfully created for Experiment: '{experiment_id}'\n")
 
 def initialize_experiment_directory(experiment_id: str):
     experiment_dir = os.path.join(EXPERIMENTS_ROOT, experiment_id)

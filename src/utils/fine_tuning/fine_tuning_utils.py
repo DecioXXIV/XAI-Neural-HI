@@ -35,33 +35,33 @@ def _validate_args(args):
     
     error_trigger = False
     if crop_size <= 0: 
-        logger.exception("crop_size must be a positive integer")
+        logger.error("crop_size must be a positive integer")
         error_trigger = True
     if batch_size <= 0: 
-        logger.exception("batch_size must be a positive integer")
+        logger.error("batch_size must be a positive integer")
         error_trigger = True
     if train_replicas <= 0: 
-        logger.exception("train_replicas must be a positive integer")
+        logger.error("train_replicas must be a positive integer")
         error_trigger = True
     if lr <= 0: 
-        logger.exception("lr must be a positive float")
+        logger.error("lr must be a positive float")
         error_trigger = True
     if not (0 < lr_final_decay_ratio < 1):
-        logger.exception("lr_final_decay_ratio must be a float in the range (0, 1)")
+        logger.error("lr_final_decay_ratio must be a float in the range (0, 1)")
         error_trigger = True
     if epochs <= 0: 
-        logger.exception("epochs must be a positive integer")
+        logger.error("epochs must be a positive integer")
         error_trigger = True
     if random_seed is not None and random_seed < 0:
-        logger.exception("random_seed must be a non-negative integer")
+        logger.error("random_seed must be a non-negative integer")
         error_trigger = True
     
     early_stopping, keep_crops = args.early_stopping.lower(), args.keep_crops.lower()
     if early_stopping not in ["true", "false"]:
-        logger.exception("early_stopping must be 'true' or 'false'")
+        logger.error("early_stopping must be 'true' or 'false'")
         error_trigger = True
     if keep_crops not in ["true", "false"]:
-        logger.exception("keep_crops must be 'true' or 'false'")
+        logger.error("keep_crops must be 'true' or 'false'")
         error_trigger = True
     
     if error_trigger: sys.exit()

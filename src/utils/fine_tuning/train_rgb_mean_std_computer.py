@@ -25,7 +25,7 @@ class TrainRGBMeanStdComputer:
     def _compute_train_rgb_mean_std(self) -> Tuple[List[float], List[float]]:
         training_crops = []
         for cls in self.classes:
-            cls_dir = os.path.join(self.experiment_ft_dir, "train_pre_aug", cls)
+            cls_dir = os.path.join(self.experiment_ft_dir, "train", cls)
             training_crops.extend([os.path.join(cls_dir, fname) for fname in os.listdir(cls_dir) if fname.endswith(".png")])
         
         def process_image(img_path):

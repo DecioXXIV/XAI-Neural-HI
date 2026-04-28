@@ -1,5 +1,6 @@
 import os, shutil, random
 from typing import List, Dict
+from random import Random
 from PIL import Image
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
@@ -15,6 +16,7 @@ class FTDatasetPreparator:
         self.experiment_dir = experiment_dir
         self.dataset = dataset
         self.classes = classes
+        self.rng = Random(24)
     
     def create_subdirectories(self):
         for phase in self.ALL_PHASES:
@@ -70,7 +72,7 @@ class FTDatasetPreparator:
         return len(crops)
 
     def _create_validation_set(self, crops_per_instance: Dict[str, Dict[str, int]]):
-        for inst_filepath in crops_per_instance["test"]:
+        for inst_filepath in tqdm(crops_per_instance["test"], desc="Extracting Validation Set", position=0, leave=True, dynamic_ncols=True):
             cls = os.path.basename(os.path.dirname(inst_filepath))
             stem = os.path.splitext(os.path.basename(inst_filepath))[0]
 
@@ -83,10 +85,10 @@ class FTDatasetPreparator:
             )
 
             n_val = max(1, round(len(all_crops) * 0.25))
-            val_crops = random.sample(all_crops, n_val)
+            val_crops = self.rng.sample(all_crops, n_val)
 
             for crop_filename in val_crops:
-                shutil.copy2(
+                shutil.copyfile(
                     os.path.join(test_cls_dir, crop_filename),
                     os.path.join(val_cls_dir,  crop_filename)
                 )

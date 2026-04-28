@@ -22,10 +22,14 @@ if __name__ == "__main__":
     MODEL_NAME, DATASET, CLASSES = EXP_METADATA.get("MODEL_NAME"), EXP_METADATA.get("DATASET"), EXP_METADATA.get("CLASSES")
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     
+    logger.info(f"*** Experiment: {EXPERIMENT_ID} -> START OF FINE TUNING-PROCESS ***\n")
+    
     ### PHASE 1: DATASET CREATION ###
     logger.info("PHASE 1 -> DATASET CREATION")
     create_dataset(EXPERIMENT_FT_DIR, DATASET, CLASSES, TRAIN_REPLICAS, CROP_SIZE)
     mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
+    
+    logger.info(f"Dataset creation completed!\n")
     
     ### PHASE 2: MODEL FINE-TUNING ###
     if "MODEL_FINE_TUNING" in FT_METADATA["TIMESTAMPS"]:
@@ -64,6 +68,7 @@ if __name__ == "__main__":
         
         logger.info(f"PHASE 4 -> DATA & METADATA HANDLING")
         if not KEEP_CROPS: remove_subdirectories(EXPERIMENT_FT_DIR, DATASET, CLASSES)
+        if KEEP_CROPS == "false": remove_subdirectories(EXPERIMENT_FT_DIR, DATASET, CLASSES)
         
         FT_METADATA["TIMESTAMPS"]["MODEL_TESTING"] = str(datetime.now())
         FT_MH.save_metadata(FT_METADATA)
