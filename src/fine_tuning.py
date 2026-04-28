@@ -1,0 +1,72 @@
+import os, torch
+from datetime import datetime
+
+from src.utils.constants import EXPERIMENTS_ROOT
+from src.utils.logger import Logger
+from src.utils.metadata.metadata_utils import get_experiment_metadata, get_ft_metadata, initialize_ft_metadata
+from src.utils.fine_tuning.fine_tuning_utils import get_ft_args, create_dataset, get_train_rgb_mean_std, get_dataloader, remove_subdirectories
+from src.utils.models.model_utils import load_model, train_model, test_model
+
+logger = Logger()
+
+if __name__ == "__main__":
+    EXPERIMENT_ID, CROP_SIZE, BATCH_SIZE, OPTIMIZER, LR, LR_SCHEDULER, LR_FINAL_DECAY_RATIO, EARLY_STOPPING, TRAIN_REPLICAS, RANDOM_SEED, EPOCHS, FT_MODE, KEEP_CROPS = get_ft_args()
+    
+    EXP_METADATA = get_experiment_metadata(EXPERIMENT_ID)
+    FT_METADATA, FT_MH = get_ft_metadata(EXPERIMENT_ID)
+    FT_METADATA = initialize_ft_metadata(FT_METADATA, FT_MH, BATCH_SIZE, OPTIMIZER, LR, LR_SCHEDULER, LR_FINAL_DECAY_RATIO, EARLY_STOPPING, CROP_SIZE, TRAIN_REPLICAS, RANDOM_SEED, EPOCHS, FT_MODE, KEEP_CROPS)
+    
+    EXPERIMENT_FT_DIR = os.path.join(EXPERIMENTS_ROOT, EXPERIMENT_ID, "fine_tuning")
+    os.makedirs(EXPERIMENT_FT_DIR, exist_ok=True)
+    
+    MODEL_NAME, DATASET, CLASSES = EXP_METADATA.get("MODEL_NAME"), EXP_METADATA.get("DATASET"), EXP_METADATA.get("CLASSES")
+    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    ### PHASE 1: DATASET CREATION ###
+    logger.info("PHASE 1 -> DATASET CREATION")
+    create_dataset(EXPERIMENT_FT_DIR, DATASET, CLASSES, TRAIN_REPLICAS, CROP_SIZE)
+    mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
+    
+    ### PHASE 2: MODEL FINE-TUNING ###
+    if "MODEL_FINE_TUNING" in FT_METADATA["TIMESTAMPS"]:
+        logger.warning("Skipping PHASE 2 (Model Fine-Tuning): it has already been completed!\n")
+    else:
+        logger.info(f"PHASE 2 -> MODEL FINE-TUNING")
+        torch.backends.cudnn.deterministic = False
+        torch.backends.cudnn.benchmark = True
+        
+        model, last_cp = load_model(EXPERIMENT_ID, MODEL_NAME, CLASSES, FT_MODE, "train", FT_METADATA)
+        
+        _, t_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "train"), CLASSES, "train", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
+        _, v_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "val"), CLASSES, "test", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
+        
+        train_model(EXPERIMENT_ID, model, t_dl, v_dl, DEVICE, FT_METADATA, last_cp)
+        
+        FT_METADATA["TIMESTAMPS"]["MODEL_FINE_TUNING"] = str(datetime.now())
+        FT_MH.save_metadata(FT_METADATA)
+        torch.cuda.empty_cache()
+        
+        logger.info("Model fine-tuning completed successfully!\n")
+    
+    ### PHASE 3: MODEL TESTING ###
+    if "MODEL_TESTING" in FT_METADATA["TIMESTAMPS"]:
+        logger.warning("Skipping PHASE 3 (Model Testing): it has already been completed!\n")
+    else:
+        logger.info(f"PHASE 3 -> MODEL TESTING")
+        
+        mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
+        model, _ = load_model(EXPERIMENT_ID, MODEL_NAME, CLASSES, FT_MODE, "test", FT_METADATA)
+        _, test_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "test"), CLASSES, "test", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
+        
+        test_model(EXPERIMENT_ID, model, test_dl, DEVICE, FT_METADATA, EXP_METADATA)
+        
+        logger.info("Model testing completed successfully!\n")
+        
+        logger.info(f"PHASE 4 -> DATA & METADATA HANDLING")
+        if not KEEP_CROPS: remove_subdirectories(EXPERIMENT_FT_DIR, DATASET, CLASSES)
+        
+        FT_METADATA["TIMESTAMPS"]["MODEL_TESTING"] = str(datetime.now())
+        FT_MH.save_metadata(FT_METADATA)
+        torch.cuda.empty_cache()
+        
+        logger.info(f"*** Experiment: {EXPERIMENT_ID} -> END OF FINE TUNING-PROCESS ***\n")
