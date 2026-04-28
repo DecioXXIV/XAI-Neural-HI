@@ -1,7 +1,7 @@
 import os
 
+from cli.arg_parsers import get_setup_exp_args
 from src.utils.constants import EXPERIMENTS_ROOT
-from src.utils.cli_parsers import get_setup_exp_args
 from src.utils.metadata.metadata_utils import create_exp_metadata
 
 if __name__ == "__main__":

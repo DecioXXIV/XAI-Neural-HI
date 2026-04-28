@@ -1,9 +1,9 @@
 import os, torch
 from datetime import datetime
 
+from cli.arg_parsers import get_ft_args
 from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.logger import Logger
-from src.utils.cli_parsers import get_ft_args
 from src.utils.metadata.metadata_utils import get_experiment_metadata, get_ft_metadata, initialize_ft_metadata, add_timestamp_to_ft_metadata
 from src.utils.fine_tuning.fine_tuning_utils import create_dataset, get_train_rgb_mean_std, get_dataloader, remove_subdirectories
 from src.utils.models.model_utils import load_model, train_model, test_model
