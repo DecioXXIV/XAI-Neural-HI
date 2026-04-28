@@ -23,8 +23,8 @@ class ModelTester:
         self.idx_to_c = {v: k for k, v in self.c_to_idx.items()}
         self.target_names = list(self.c_to_idx.keys())
 
-    def _predict(self) -> Tuple[List[int], List[int]]:
-        labels, preds = [], []
+    def _predict(self) -> Tuple[List[int], List[int], List[List[float]], List[List[float]]]:
+        labels, preds, logits, probs = [], [], [], []
         pbar = tqdm(self.test_dl, desc="Testing (Crop-Level)", dynamic_ncols=True)
 
         with torch.no_grad():
@@ -33,32 +33,40 @@ class ModelTester:
                     labels.extend(target.numpy().tolist())
                     output = self.model(data.to(self.device))
                     preds.extend(output.argmax(dim=1).cpu().numpy().tolist())
+                    logits.extend(output.cpu().numpy().tolist())
+                    probs.extend(torch.softmax(output, dim=1).cpu().numpy().tolist())
                 elif data.dim() == 5:
                     bs, ncrops, c, h, w = data.size()
                     for i in range(bs):
                         labels.extend([target[i].item()] * ncrops)
                     output = self.model(data.to(self.device).view(-1, c, h, w))
                     preds.extend(output.argmax(dim=1).cpu().numpy().tolist())
+                    logits.extend(output.cpu().numpy().tolist())
+                    probs.extend(torch.softmax(output, dim=1).cpu().numpy().tolist())
 
-        return labels, preds
-
-    def _infer_page_level_predictions(self, crop_labels: List[int], crop_preds: List[int]) -> Tuple[List[int], List[int]]:
-        pl_labels, pl_preds = [], []
+        return labels, preds, logits, probs
+    
+    def _infer_page_level_predictions(self, crop_labels: List[int], crop_preds: List[int]) -> Tuple[List[int], List[int], Dict[str, List[int]]]:
         crops_per_instance_dict_path = os.path.join(EXPERIMENTS_ROOT, self.experiment_id, "fine_tuning", "n_crops_per_instance.json")
         with open(crops_per_instance_dict_path, "r") as f: crops_per_test_instance_dict = json.load(f)["test"]
+        # crop_per_test_instance_dict = {"page_path": n_crops_extracted_from_that_page}
         
-        crops_to_page_list = [v for v in crops_per_test_instance_dict.values()]
-        for i in range(len(crops_to_page_list)):
-            left_ext, right_ext = sum(crops_to_page_list[:i]), sum(crops_to_page_list[:i+1])
-            chunk_labels, chunk_preds = crop_labels[left_ext:right_ext], crop_preds[left_ext:right_ext]
-            pl_labels.append(chunk_labels[0])
-            pl_preds.append(int(np.argmax(np.bincount(chunk_preds))))
+        crop_preds_per_page, pl_labels, pl_preds = {}, [], []
+        page_list = [os.path.basename(k) for k in crops_per_test_instance_dict.keys()]
+        n_crops_per_page_list = list(crops_per_test_instance_dict.values())
+        offset = 0
+        
+        for p, n in zip(page_list, n_crops_per_page_list):
+            crop_preds_per_page[p] = crop_preds[offset:offset + n]
+            pl_labels.append(crop_labels[offset])
+            pl_preds.append(int(np.argmax(np.bincount(crop_preds[offset:offset + n]))))
+            offset += n
+        
+        return pl_labels, pl_preds, crop_preds_per_page
 
-        return pl_labels, pl_preds
-
-    def __call__(self) -> Tuple[List[int], List[int], List[int], List[int]]:
+    def __call__(self) -> Tuple[List[int], List[int], List[List[float]], List[List[float]], Dict[str, List[int]], List[int], List[int]]:
         self.model.eval()
         self.model.to(self.device)
-        crop_labels, crop_preds = self._predict()
-        page_labels, page_preds = self._infer_page_level_predictions(crop_labels, crop_preds)
-        return crop_labels, crop_preds, page_labels, page_preds
+        crop_labels, crop_preds, crop_logits, crop_probs = self._predict()
+        page_labels, page_preds, crop_preds_per_page = self._infer_page_level_predictions(crop_labels, crop_preds)
+        return crop_labels, crop_preds, crop_logits, crop_probs, crop_preds_per_page, page_labels, page_preds

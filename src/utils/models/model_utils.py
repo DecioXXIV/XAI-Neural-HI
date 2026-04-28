@@ -20,7 +20,7 @@ def train_model(experiment_id: str, model: nn.Module, train_dl: DataLoader, val_
 
 def test_model(experiment_id: str, model: nn.Module, test_dl: DataLoader, device: str, ft_metadata: Dict[str, Any], exp_metadata: Dict[str, Any]) -> None:
     model_tester = ModelTester(experiment_id, model, test_dl, device, ft_metadata, exp_metadata)
-    crop_labels, crop_preds, page_labels, page_preds = model_tester()
+    crop_labels, crop_preds, crop_logits, crop_probs, crop_preds_per_page, page_labels, page_preds = model_tester()
 
     testing_recap_writer = TestingRecapWriter(experiment_id, test_dl)
-    testing_recap_writer(crop_labels, crop_preds, page_labels, page_preds)
+    testing_recap_writer(crop_labels, crop_preds, crop_logits, crop_probs, crop_preds_per_page, page_labels, page_preds)
