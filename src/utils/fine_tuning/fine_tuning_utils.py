@@ -14,6 +14,7 @@ logger = Logger()
 def get_ft_args():
     parser = ArgumentParser()
     parser.add_argument("-experiment_id", type=str, required=True)
+    parser.add_argument("-ch_layers", type=str, required=True)
     parser.add_argument("-crop_size", type=int, required=True)
     parser.add_argument("-batch_size", type=int, required=True)
     parser.add_argument("-opt", type=str, required=True, choices=OPTIMIZERS)
@@ -30,7 +31,7 @@ def get_ft_args():
 
 def _validate_args(args):
     experiment_id = args.experiment_id
-    crop_size, batch_size, opt, lr, lr_scheduler, lr_final_decay_ratio, early_stopping = args.crop_size, args.batch_size, args.opt, args.lr, args.lr_scheduler, args.lr_final_decay_ratio, args.early_stopping
+    crop_size, batch_size, ch_layers, opt, lr, lr_scheduler, lr_final_decay_ratio, early_stopping = args.crop_size, args.batch_size, args.ch_layers, args.opt, args.lr, args.lr_scheduler, args.lr_final_decay_ratio, args.early_stopping
     train_replicas, random_seed, epochs, ft_mode, keep_crops = args.train_replicas, args.random_seed, args.epochs, args.ft_mode, args.keep_crops
     
     error_trigger = False
@@ -70,7 +71,7 @@ def _validate_args(args):
         random_seed = int(np.random.randint(0, 2**32 - 1))
         logger.warning(f"No random_seed provided. Using '{random_seed}' (randomly generated).")
 
-    return experiment_id, crop_size, batch_size, opt, lr, lr_scheduler, lr_final_decay_ratio, early_stopping, train_replicas, random_seed, epochs, ft_mode, keep_crops
+    return experiment_id, crop_size, batch_size, ch_layers, opt, lr, lr_scheduler, lr_final_decay_ratio, early_stopping, train_replicas, random_seed, epochs, ft_mode, keep_crops
 
 def create_dataset(experiment_ft_dir: str, dataset: str, classes: List[str], train_replicas: int, crop_size: int):  
     dataset_preparator = FTDatasetPreparator(experiment_ft_dir, dataset, classes)

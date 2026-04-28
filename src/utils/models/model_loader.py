@@ -17,12 +17,12 @@ class ModelLoader:
         self.phase = phase
         self.ft_metadata = ft_metadata
 
-    def __call__(self) -> Tuple[ResNet18 | SwinTiny, Dict[str, Any]]:
+    def __call__(self, ch_layers: List[str]) -> Tuple[ResNet18 | SwinTiny, Dict[str, Any]]:
         logger.info(f"Loading Model '{self.model_name}' in '{self.phase}' phase...")
         model, last_cp = None, None
         
-        if self.model_name == "ResNet18": model = ResNet18(num_classes=len(self.classes), ft_mode=self.ft_mode)
-        elif self.model_name == "SwinTiny": model = SwinTiny(num_classes=len(self.classes), ft_mode=self.ft_mode)
+        if self.model_name == "ResNet18": model = ResNet18(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
+        elif self.model_name == "SwinTiny": model = SwinTiny(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
             
         experiment_ft_dir = os.path.join(EXPERIMENTS_ROOT, self.experiment_id, "fine_tuning")
             
