@@ -1,4 +1,6 @@
-import os, torch
+import os, torch, random
+import numpy as np
+
 from datetime import datetime
 
 from cli.arg_parsers import get_ft_args
@@ -9,6 +11,7 @@ from src.utils.fine_tuning.fine_tuning_utils import create_dataset, get_train_rg
 from src.utils.models.model_utils import load_model, train_model, test_model
 
 logger = Logger()
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 if __name__ == "__main__":
     EXPERIMENT_ID, METRIC, CH_LAYERS, CROP_SIZE, BATCH_SIZE, OPTIMIZER, LR, LR_SCHEDULER, LR_FINAL_DECAY_RATIO, WEIGHT_DECAY, LABEL_SMOOTHING, EARLY_STOPPING, TRAIN_REPLICAS, RANDOM_SEED, EPOCHS, FT_MODE, KEEP_CROPS = get_ft_args()
@@ -37,16 +40,21 @@ if __name__ == "__main__":
         logger.warning("Skipping PHASE 2 (Model Fine-Tuning): it has already been completed!\n")
     else:
         logger.info(f"PHASE 2 -> MODEL FINE-TUNING")
-        torch.backends.cudnn.deterministic = False
-        torch.backends.cudnn.benchmark = True
+        if RANDOM_SEED is not None:
+            random.seed(RANDOM_SEED)
+            np.random.seed(RANDOM_SEED)
+            torch.manual_seed(RANDOM_SEED)
+            if torch.cuda.is_available(): torch.cuda.manual_seed_all(RANDOM_SEED)
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
         
         model, last_cp = load_model(EXPERIMENT_ID, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", FT_METADATA)
         
-        _, t_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "train"), CLASSES, "train", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
-        _, v_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "val"), CLASSES, "test", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
-        
-        train_model(EXPERIMENT_ID, model, t_dl, v_dl, DEVICE, FT_METADATA, last_cp)
-        
+        train_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "train"), CLASSES, "train", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE, RANDOM_SEED)
+        val_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "val"), CLASSES, "val", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
+        train_model(EXPERIMENT_ID, model, train_dl, val_dl, DEVICE, FT_METADATA, last_cp)
+
         add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_FINE_TUNING", str(datetime.now()))
         torch.cuda.empty_cache()
         
@@ -60,7 +68,7 @@ if __name__ == "__main__":
         
         mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
         model, _ = load_model(EXPERIMENT_ID, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", FT_METADATA)
-        _, test_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "test"), CLASSES, "test", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
+        test_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "test"), CLASSES, "test", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
         
         test_model(EXPERIMENT_ID, model, test_dl, DEVICE, FT_METADATA, EXP_METADATA)
         

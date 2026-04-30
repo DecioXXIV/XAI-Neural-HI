@@ -15,10 +15,12 @@ from src.utils.fine_tuning.history_handler import HistoryHandler
 from src.utils.fine_tuning.early_stopping import EarlyStopping
 from src.utils.metadata.metadata_handler import MetadataHandler
 
+from src.utils.data.dataloaders import TrainDataLoader, TestDataLoader
+
 logger = Logger()
 
 class ModelTrainer:
-    def __init__(self, experiment_id: str, model: nn.Module, train_dl: DataLoader, val_dl: DataLoader, device: str, ft_metadata: Dict[str, Any], last_cp: Dict[str, Any] | None = None):
+    def __init__(self, experiment_id: str, model: nn.Module, train_dl: TrainDataLoader, val_dl: TestDataLoader, device: str, ft_metadata: Dict[str, Any], last_cp: Dict[str, Any] | None = None):
         self.experiment_id = experiment_id
         self.model = model
         self.train_dl = train_dl
@@ -26,6 +28,7 @@ class ModelTrainer:
         self.device = device
         self.ft_metadata = ft_metadata
         self.last_cp = last_cp
+        self._current_epoch: int = ft_metadata["FINE_TUNING_DETAILS"].get("EPOCHS_COMPLETED", 0) + 1
 
         self.metric = ft_metadata["HYPERPARAMETERS"]["metric"]
         self.optimizer_type = ft_metadata["HYPERPARAMETERS"]["optimizer"]
@@ -34,6 +37,9 @@ class ModelTrainer:
         self.lr_final_decay_ratio = ft_metadata["HYPERPARAMETERS"]["lr_final_decay_ratio"]
         self.use_early_stopping = ft_metadata["HYPERPARAMETERS"]["early_stopping"]
         self.num_epochs = ft_metadata["HYPERPARAMETERS"]["total_epochs"]
+        
+        _, self.t_dl = self.train_dl.load_data()
+        _, self.v_dl = self.val_dl.load_data()
 
         if self.use_early_stopping:
             self.max_epochs = 200
@@ -75,17 +81,17 @@ class ModelTrainer:
         eta_min = self.lr * self.lr_final_decay_ratio * 0.1
         return CosineAnnealingLR(optimizer, t_max, eta_min, last_epoch=-1)
 
-    def _compute_minibatch_accuracy(self, output: torch.Tensor, label: torch.Tensor) -> Tuple[int, float]:
+    def _compute_minibatch_accuracy(self, output: torch.Tensor, label: torch.Tensor) -> Tuple[int, torch.Tensor]:
         max_index = output.argmax(dim=1)
         correct = (max_index == label).sum().item()
-        correct_ratio = correct / label.size(0)
-        return correct, correct_ratio
+        return correct, max_index
 
     def _train_one_epoch(self, optimizer: Optimizer, criterion: nn.Module) -> Tuple[float, float, float, float]:
+        self.train_dl.update_epoch(self._current_epoch)
         self.model.train()
         epoch_loss, epoch_acc, total_samples = 0.0, 0.0, 0
         ds_output, ds_target = [], []
-        pbar = tqdm(self.train_dl, desc="Training", dynamic_ncols=True)
+        pbar = tqdm(self.t_dl, desc="Training", dynamic_ncols=True)
 
         for data, target in pbar:
             bs = data.size(0)
@@ -94,26 +100,29 @@ class ModelTrainer:
             optimizer.zero_grad()
             output = self.model(data)
             loss = criterion(output, target)
-            correct, _ = self._compute_minibatch_accuracy(output, target)
+            correct, max_index = self._compute_minibatch_accuracy(output, target)
 
             epoch_loss += loss.item() * bs
             epoch_acc += correct
             total_samples += bs
-            ds_output.extend(np.argmax(output.detach().cpu().numpy(), axis=1))
-            ds_target.extend(target.cpu().numpy())
+            ds_output.append(max_index.detach())
+            ds_target.append(target)
 
             loss.backward()
             optimizer.step()
 
             pbar.set_postfix(loss=epoch_loss / total_samples, accuracy=epoch_acc / total_samples, refresh=True)
 
-        return epoch_loss / total_samples, epoch_acc / total_samples, f1_score(ds_target, ds_output, average='macro'), f1_score(ds_target, ds_output, average='weighted')
+        self._current_epoch += 1
+        ds_output_np = torch.cat(ds_output).cpu().numpy()
+        ds_target_np = torch.cat(ds_target).cpu().numpy()
+        return epoch_loss / total_samples, epoch_acc / total_samples, f1_score(ds_target_np, ds_output_np, average='macro'), f1_score(ds_target_np, ds_output_np, average='weighted')
 
     def _validate_one_epoch(self, criterion: nn.Module) -> Tuple[float, float, float, float]:
         self.model.eval()
         val_loss, val_acc, total_samples = 0.0, 0.0, 0
         ds_output, ds_target = [], []
-        pbar = tqdm(self.val_dl, desc="Validation", dynamic_ncols=True)
+        pbar = tqdm(self.v_dl, desc="Validation", dynamic_ncols=True)
 
         with torch.no_grad():
             for data, target in pbar:
@@ -122,17 +131,19 @@ class ModelTrainer:
 
                 output = self.model(data)
                 loss = criterion(output, target)
-                correct, _ = self._compute_minibatch_accuracy(output, target)
+                correct, max_index = self._compute_minibatch_accuracy(output, target)
 
                 val_loss += loss.item() * bs
                 val_acc += correct
                 total_samples += bs
-                ds_output.extend(np.argmax(output.cpu().numpy(), axis=1))
-                ds_target.extend(target.cpu().numpy())
+                ds_output.append(max_index)
+                ds_target.append(target)
 
                 pbar.set_postfix(loss=val_loss / total_samples, accuracy=val_acc / total_samples, refresh=True)
 
-        return val_loss / total_samples, val_acc / total_samples, f1_score(ds_target, ds_output, average='macro'), f1_score(ds_target, ds_output, average='weighted')
+        ds_output_np = torch.cat(ds_output).cpu().numpy()
+        ds_target_np = torch.cat(ds_target).cpu().numpy()
+        return val_loss / total_samples, val_acc / total_samples, f1_score(ds_target_np, ds_output_np, average='macro'), f1_score(ds_target_np, ds_output_np, average='weighted')
 
     def __call__(self):
         self.model.to(self.device)
