@@ -85,6 +85,11 @@ class BaseDataLoader(ABC):
         self.mean = mean_
         self.std = std_
         self.device = device
+        
+        self.num_workers = 8
+        self.pin_memory = self.device == "cuda"
+        self.persistent_workers = self.num_workers > 0
+        self.prefetch_factor = 4
     
     def generate_dataset(self) -> ImageFolder:
         dataset = ImageFolder(root=self.directory, transform=self.compose_transform())
@@ -107,13 +112,8 @@ class TestDataLoader(BaseDataLoader):
     
     def load_data(self) -> Tuple[ImageFolder, DataLoader]:
         dataset = self.generate_dataset()
-        
-        num_workers = 8
-        pin_memory = self.device == "cuda"
-        persistent_workers = num_workers > 0
-        prefetch_factor = 4
-        
-        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False, num_workers=num_workers, pin_memory=pin_memory, persistent_workers=persistent_workers, prefetch_factor=prefetch_factor)
+        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, 
+                            pin_memory=self.pin_memory, persistent_workers=self.persistent_workers, prefetch_factor=self.prefetch_factor)
         
         return dataset, loader
     
@@ -180,15 +180,10 @@ class TrainDataLoader(BaseDataLoader):
         self._dataset.set_epoch_context(indices, self.batch_size, self.random_seed, self.epoch)
         self._sampler = PrecomputedOrderSampler(indices)
         
-        num_workers = 8
-        pin_memory = self.device == "cuda"
-        persistent_workers = num_workers > 0
-        prefetch_factor = 4
-        
         self._loader = DataLoader(
             self._dataset, batch_size=self.batch_size, sampler=self._sampler,
-            num_workers=num_workers, pin_memory=pin_memory,
-            persistent_workers=persistent_workers, prefetch_factor=prefetch_factor
+            num_workers=self.num_workers, pin_memory=self.pin_memory,
+            persistent_workers=self.persistent_workers, prefetch_factor=self.prefetch_factor
         )
         
         return self._dataset, self._loader

@@ -76,7 +76,6 @@ class TrainingRecapWriter:
             plt.plot(values['train'])
             plt.plot(values['val'])
             plt.title(f"Model {metric}")
-            plt.xticks(range(1, len(values['train']) + 1))
             plt.xlabel("Epoch [-]")
             plt.ylabel(f"{metric} [-]")
             plt.legend(['Training', 'Validation'], loc='best')
@@ -88,7 +87,6 @@ class TrainingRecapWriter:
         
         plt.plot(lrs)
         plt.title("Learning Rate Schedule")
-        plt.xticks(range(1, len(lrs) + 1))
         plt.xlabel("Epoch [-]")
         plt.ylabel("Learning Rate [-]")
         plt.savefig(os.path.join(self.history_dir, "learning_rates.png"))
@@ -173,10 +171,14 @@ class TestingRecapWriter:
         crop_metrics = classification_report(crop_labels, crop_preds, target_names=self.target_names, output_dict=True)
         self._produce_confusion_matrix("crop_level", crop_labels, crop_preds)
         logger.info(f"Crop-Level Accuracy: {crop_metrics['accuracy']:.4f}")
+        logger.info(f"Crop-Level Macro F1: {crop_metrics['macro avg']['f1-score']:.4f}")
+        logger.info(f"Crop-Level Weighted F1: {crop_metrics['weighted avg']['f1-score']:.4f}")
 
         page_metrics = classification_report(page_labels, page_preds, target_names=self.target_names, output_dict=True)
         self._produce_confusion_matrix("page_level", page_labels, page_preds)
         logger.info(f"Page-Level Accuracy: {page_metrics['accuracy']:.4f}")
+        logger.info(f"Page-Level Macro F1: {page_metrics['macro avg']['f1-score']:.4f}")
+        logger.info(f"Page-Level Weighted F1: {page_metrics['weighted avg']['f1-score']:.4f}")
         
         classification_metrics = {"crop_level": crop_metrics, "page_level": page_metrics}
         with open(os.path.join(self.output_dir, "classification_metrics.json"), "w") as f:
