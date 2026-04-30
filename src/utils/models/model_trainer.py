@@ -155,6 +155,9 @@ class ModelTrainer:
 
     def __call__(self):
         self.model.to(self.device)
+        if torch.cuda.device_count() > 1:
+            logger.info(f"Using {torch.cuda.device_count()} GPUs with DataParallel.")
+            self.model = nn.DataParallel(self.model)
         criterion = nn.CrossEntropyLoss(label_smoothing=self.ft_metadata["HYPERPARAMETERS"]["label_smoothing"])
         optimizer = self._set_optimizer(weight_decay=self.ft_metadata["HYPERPARAMETERS"]["weight_decay"])
         scheduler = self._set_scheduler(optimizer)

@@ -13,7 +13,7 @@ class CheckpointSaver:
     
     def __call__(self, cp_name: str, model: nn.Module, optimizer: Optimizer, scheduler: CosineAnnealingLR | None, early_stopping: object, scaler: torch.amp.GradScaler | None = None) -> None:
         checkpoint = {
-            "model_state_dict": model.state_dict(),
+            "model_state_dict": model.module.state_dict() if isinstance(model, nn.DataParallel) else model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "scheduler_state_dict": scheduler.state_dict() if scheduler is not None else None,
             "early_stopping": early_stopping.state_dict() if early_stopping is not None else None,
