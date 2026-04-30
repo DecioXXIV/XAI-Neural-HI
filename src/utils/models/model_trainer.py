@@ -41,6 +41,11 @@ class ModelTrainer:
         _, self.t_dl = self.train_dl.load_data()
         _, self.v_dl = self.val_dl.load_data()
 
+        self.use_amp = device.startswith("cuda")
+        self.scaler = torch.amp.GradScaler('cuda', enabled=self.use_amp)
+        if self.last_cp is not None and self.last_cp.get("scaler_state_dict") is not None:
+            self.scaler.load_state_dict(self.last_cp["scaler_state_dict"])
+
         if self.use_early_stopping:
             self.max_epochs = 200
             self.early_stopping = EarlyStopping(metric=self.metric, patience=10, delta=0.0, max_epochs=self.max_epochs)
@@ -98,8 +103,9 @@ class ModelTrainer:
             data, target = data.to(self.device), target.to(self.device)
 
             optimizer.zero_grad()
-            output = self.model(data)
-            loss = criterion(output, target)
+            with torch.amp.autocast(device_type='cuda', enabled=self.use_amp):
+                output = self.model(data)
+                loss = criterion(output, target)
             correct, max_index = self._compute_minibatch_accuracy(output, target)
 
             epoch_loss += loss.item() * bs
@@ -108,8 +114,9 @@ class ModelTrainer:
             ds_output.append(max_index.detach())
             ds_target.append(target)
 
-            loss.backward()
-            optimizer.step()
+            self.scaler.scale(loss).backward()
+            self.scaler.step(optimizer)
+            self.scaler.update()
 
             pbar.set_postfix(loss=epoch_loss / total_samples, accuracy=epoch_acc / total_samples, refresh=True)
 
@@ -129,8 +136,9 @@ class ModelTrainer:
                 bs = data.size(0)
                 data, target = data.to(self.device), target.to(self.device)
 
-                output = self.model(data)
-                loss = criterion(output, target)
+                with torch.amp.autocast(device_type='cuda', enabled=self.use_amp):
+                    output = self.model(data)
+                    loss = criterion(output, target)
                 correct, max_index = self._compute_minibatch_accuracy(output, target)
 
                 val_loss += loss.item() * bs
@@ -210,8 +218,8 @@ class ModelTrainer:
                     best_metric_v = val_metric_value
                     update_val_best_model = True
             
-            if update_val_best_model: checkpoint_saver("val_best_model", self.model, optimizer, scheduler, self.early_stopping)
-            checkpoint_saver("last_checkpoint", self.model, optimizer, scheduler, self.early_stopping)
+            if update_val_best_model: checkpoint_saver("val_best_model", self.model, optimizer, scheduler, self.early_stopping, self.scaler)
+            checkpoint_saver("last_checkpoint", self.model, optimizer, scheduler, self.early_stopping, self.scaler)
             history_handler.save_history(history)
 
             self.ft_metadata["FINE_TUNING_DETAILS"]["EPOCHS_COMPLETED"] = epoch

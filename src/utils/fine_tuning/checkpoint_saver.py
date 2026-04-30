@@ -11,12 +11,13 @@ class CheckpointSaver:
         os.makedirs(self.checkpoint_dir, exist_ok=True)
         self.metric = metric
     
-    def __call__(self, cp_name: str, model: nn.Module, optimizer: Optimizer, scheduler: CosineAnnealingLR | None, early_stopping: object) -> None:
+    def __call__(self, cp_name: str, model: nn.Module, optimizer: Optimizer, scheduler: CosineAnnealingLR | None, early_stopping: object, scaler: torch.amp.GradScaler | None = None) -> None:
         checkpoint = {
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "scheduler_state_dict": scheduler.state_dict() if scheduler is not None else None,
-            "early_stopping": early_stopping.state_dict() if early_stopping is not None else None
+            "early_stopping": early_stopping.state_dict() if early_stopping is not None else None,
+            "scaler_state_dict": scaler.state_dict() if scaler is not None else None
         }
         
         checkpoint_path = os.path.join(self.checkpoint_dir, f"{cp_name}.pth")
