@@ -35,6 +35,8 @@ class SwinTiny(nn.Module):
     
     def get_input_size(self) -> int: return 224
     
+    def get_model_name(self) -> str: return "SwinTiny"
+    
     def extract_visual_features(self, x: torch.Tensor) -> torch.Tensor:
         return self.feature_encoder(x)
     

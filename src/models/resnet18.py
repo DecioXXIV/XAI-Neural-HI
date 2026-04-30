@@ -57,6 +57,8 @@ class ResNet18(nn.Module):
         self.classification_head = build_classification_head(1024, num_classes, layers)
 
     def get_input_size(self) -> int: return 380
+    
+    def get_model_name(self) -> str: return "ResNet18"
 
     def extract_visual_features(self, x: torch.Tensor) -> torch.Tensor:
         return self.feature_encoder.extract_backbone_features(x)
