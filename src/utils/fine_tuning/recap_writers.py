@@ -76,8 +76,9 @@ class TrainingRecapWriter:
             plt.plot(values['train'])
             plt.plot(values['val'])
             plt.title(f"Model {metric}")
-            plt.ylabel(f"{metric} [-]")
+            plt.xticks(range(1, len(values['train']) + 1))
             plt.xlabel("Epoch [-]")
+            plt.ylabel(f"{metric} [-]")
             plt.legend(['Training', 'Validation'], loc='best')
             plt.savefig(os.path.join(self.history_dir, f"{metric}.png"))
             plt.close()
@@ -87,8 +88,9 @@ class TrainingRecapWriter:
         
         plt.plot(lrs)
         plt.title("Learning Rate Schedule")
-        plt.ylabel("Learning Rate [-]")
+        plt.xticks(range(1, len(lrs) + 1))
         plt.xlabel("Epoch [-]")
+        plt.ylabel("Learning Rate [-]")
         plt.savefig(os.path.join(self.history_dir, "learning_rates.png"))
         plt.close()
     
