@@ -4,4 +4,7 @@ OPTIMIZERS = ["SGD", "Adam", "AdamW"]
 LR_SCHEDULERS = ["CosineAnnealingLR"]
 FT_MODES = ["frozen", "full"]
 
-__all__ = [CLASSIFIERS, METRICS, OPTIMIZERS, LR_SCHEDULERS, FT_MODES]
+EXPLAINERS = ["Occlusion", "Lime", "GLimeBinomial"]
+SEGMENTATIONS = ["sq_patches"]
+
+__all__ = [CLASSIFIERS, METRICS, OPTIMIZERS, LR_SCHEDULERS, FT_MODES, EXPLAINERS, SEGMENTATIONS]

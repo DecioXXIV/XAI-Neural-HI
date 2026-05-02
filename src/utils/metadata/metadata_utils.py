@@ -1,5 +1,5 @@
 import os, sys
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 
 from src.utils.constants import METADATA_ROOT
 from src.utils.logger import Logger
@@ -44,3 +44,43 @@ def add_timestamp_to_ft_metadata(experiment_id: str, ft_metadata: Dict[str, Any]
     ft_metadata["TIMESTAMPS"][key] = timestamp
     ft_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "ft-metadata.json")
     MetadataHandler(ft_metadata_path).save_metadata(ft_metadata)
+
+def get_xai_metadata(experiment_id: str) -> Dict[str, Any]:
+    xai_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "xai-metadata.json")
+    return MetadataHandler(xai_metadata_path).load_metadata()
+
+def initialize_xai_metadata(experiment_id: str, xai_metadata: Dict[str, Any], xai_algorithm: str, xai_details: str, subsample: int, save_samples: bool, seg_type: str, patch_dim: int, num_samples: int, kernel_width: float) -> Tuple[Dict[str, Any], str]:
+    if xai_algorithm not in xai_metadata: xai_metadata[xai_algorithm] = {}
+    
+    xai_entry = ""
+    if seg_type == "sq_patches":
+        xai_entry = f"sq_patches{patch_dim}x{patch_dim}" 
+        if xai_algorithm in ("Lime", "GLimeBinomial"):
+            xai_entry += f"-kw{kernel_width}-ns{num_samples}"
+    xai_entry += f"-{xai_details}"
+    
+    if xai_entry not in xai_metadata[xai_algorithm]:
+        hp_dict = {"seg_type": seg_type}
+        if seg_type == "sq_patches": hp_dict["patch_dim"] = patch_dim
+        if xai_algorithm in ("Lime", "GLimeBinomial"): 
+            hp_dict["kernel_width"] = kernel_width
+            hp_dict["num_samples"] = num_samples
+        hp_dict["xai_details"] = xai_details
+        
+        xai_metadata[xai_algorithm][xai_entry] = {"HYPERPARAMETERS": hp_dict}
+    
+    xai_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "xai-metadata.json")
+    MetadataHandler(xai_metadata_path).save_metadata(xai_metadata)
+    return xai_metadata, xai_entry
+
+def get_xai_instances_metadata(experiment_xai_dir: str) -> Dict[str, Any]:
+    xai_instances_metadata_path = os.path.join(experiment_xai_dir, "xai_instances_metadata.json")
+    if os.path.exists(xai_instances_metadata_path):
+        return MetadataHandler(xai_instances_metadata_path).load_metadata()
+    else:
+        return {"INSTANCES": {}}
+
+def add_end_timestamp_to_xai_metadata(experiment_id: str, xai_metadata: Dict[str, Any], xai_algorithm: str, xai_entry: str, timestamp: Any):
+    xai_metadata[xai_algorithm][xai_entry]["END_TIMESTAMP"] = timestamp
+    xai_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "xai-metadata.json")
+    MetadataHandler(xai_metadata_path).save_metadata(xai_metadata)
