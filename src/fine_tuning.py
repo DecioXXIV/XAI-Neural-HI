@@ -25,6 +25,10 @@ if __name__ == "__main__":
     
     MODEL_NAME, DATASET, CLASSES = EXP_METADATA.get("MODEL_NAME"), EXP_METADATA.get("DATASET"), EXP_METADATA.get("CLASSES")
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    if DEVICE == "cuda":
+        torch.cuda.empty_cache()
+        n_devices = torch.cuda.device_count()
+        logger.info(f"Device(s): {[torch.cuda.get_device_name(i) for i in range(n_devices)]}")
     
     logger.info(f"*** Experiment: {EXPERIMENT_ID} -> START OF FINE TUNING-PROCESS ***\n")
     

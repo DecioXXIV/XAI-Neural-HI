@@ -53,13 +53,15 @@ class SwinTiny(nn.Module):
             T.Normalize(mean, std)
         ])
     
-    def batch_predict_function(self, inputs: List[np.ndarray], mean: List[float], std: List[float], device: torch.device, apply_softmax: bool=True) -> np.ndarray:
-        transforms = self.build_inference_transforms(mean, std, self.get_input_size())
-        batch = torch.stack([transforms(i) for i in inputs], dim=0).to(device)
+    def batch_predict_function(self, inputs: List[np.ndarray], mean: List[float], std: List[float], device: torch.device, apply_softmax: bool=True, forward_fn=None) -> np.ndarray:
+        if not hasattr(self, '_inference_transforms'):
+            self._inference_transforms = self.build_inference_transforms(mean, std, self.get_input_size())
+        batch = torch.stack([self._inference_transforms(i) for i in inputs], dim=0).to(device)
         
         self.eval()
         with torch.no_grad():
-            logits = self(batch)
+            _fn = forward_fn if forward_fn is not None else self
+            logits = _fn(batch)
             if apply_softmax:
                 probs = F.softmax(logits, dim=1)
                 output = probs.detach().cpu().numpy()

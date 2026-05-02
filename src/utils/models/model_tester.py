@@ -22,6 +22,9 @@ class ModelTester:
         self.c_to_idx = test_dl.dataset.class_to_idx
         self.idx_to_c = {v: k for k, v in self.c_to_idx.items()}
         self.target_names = list(self.c_to_idx.keys())
+        
+        with open(os.path.join(EXPERIMENTS_ROOT, experiment_id, "fine_tuning", "class_to_idx.json"), "w") as f:
+            json.dump(self.c_to_idx, f)
 
     def _predict(self) -> Tuple[List[int], List[int], List[List[float]], List[List[float]]]:
         labels, preds, logits, probs = [], [], [], []
@@ -67,6 +70,9 @@ class ModelTester:
     def __call__(self) -> Tuple[List[int], List[int], List[List[float]], List[List[float]], Dict[str, List[int]], List[int], List[int]]:
         self.model.eval()
         self.model.to(self.device)
+        if torch.cuda.device_count() > 1:
+            logger.info(f"Using {torch.cuda.device_count()} GPUs with DataParallel.")
+            self.model = nn.DataParallel(self.model)
         crop_labels, crop_preds, crop_logits, crop_probs = self._predict()
         page_labels, page_preds, crop_preds_per_page = self._infer_page_level_predictions(crop_labels, crop_preds)
         return crop_labels, crop_preds, crop_logits, crop_probs, crop_preds_per_page, page_labels, page_preds
