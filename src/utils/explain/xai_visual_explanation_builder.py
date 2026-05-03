@@ -14,20 +14,16 @@ class XaiVisualExplanationBuilder:
         map_to_plot = np.array(segments, dtype=np.float32)
         for k in scores.keys(): map_to_plot[segments == int(k)] = scores[k]
         
-        score_values = np.array(list(scores.values()))
-        vmin, vmax = score_values.min(), score_values.max()
+        vmin, vmax = -1, 1
         cmap = LinearSegmentedColormap.from_list("RdWhGn", ["red", "white", "green"])
         cmap.set_bad(color='black')
         
-        # Ensure the figure matches the resolution of the original image
-        dpi = img.info.get('dpi', (100,))[0]  # Use image DPI if available, default to 100
-        figsize = (img.width / dpi, img.height / dpi)
-
-        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+        # Plotting the attribution map
+        fig, ax = plt.subplots(figsize=(6, 6))
         ax.axis("off")
         ax.imshow(img, alpha=1.0)  # Show original image in the background
         ax.imshow(map_to_plot, cmap=cmap, vmin=vmin, vmax=vmax, alpha=0.5)  # Overlay heatmap with transparency
 
         # Save the visual explanation figure without the color bar
-        fig.savefig(os.path.join(page_xai_dir, f"{page_name}_visual_exp.png"), bbox_inches="tight", pad_inches=0)
+        fig.savefig(os.path.join(page_xai_dir, f"{page_name}_visual_exp.png"), bbox_inches="tight", dpi=300)
         plt.close(fig)
