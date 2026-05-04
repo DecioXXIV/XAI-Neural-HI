@@ -84,3 +84,17 @@ def add_end_timestamp_to_xai_metadata(experiment_id: str, xai_metadata: Dict[str
     xai_metadata[xai_algorithm][xai_entry]["END_TIMESTAMP"] = timestamp
     xai_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "xai-metadata.json")
     MetadataHandler(xai_metadata_path).save_metadata(xai_metadata)
+
+def initialize_faithfulness_metadata(experiment_id: str, xai_algorithm: str, xai_entry: str) -> Dict[str, Any]:
+    faith_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "faithfulness-metadata.json")
+    faith_metadata = MetadataHandler(faith_metadata_path).load_metadata()
+    
+    if xai_algorithm not in faith_metadata: faith_metadata[xai_algorithm] = {}
+    if xai_entry not in faith_metadata[xai_algorithm]: faith_metadata[xai_algorithm][xai_entry] = {}
+    
+    return faith_metadata
+
+def add_end_timestamp_to_faithfulness_metadata(experiment_id: str, faith_metadata: Dict[str, Any], xai_algorithm: str, xai_entry: str, faith_entry: str, timestamp: Any):
+    faith_metadata[xai_algorithm][xai_entry][faith_entry] = timestamp
+    faith_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "faithfulness-metadata.json")
+    MetadataHandler(faith_metadata_path).save_metadata(faith_metadata)

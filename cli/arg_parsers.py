@@ -146,3 +146,44 @@ def _validate_explain_args(args):
     if error_trigger: sys.exit()
 
     return experiment_id, xai_algorithm, xai_details, subsample, save_samples, seg_type, patch_dim, num_samples, kernel_width
+
+### ############ ###
+### FAITHFULNESS ###
+### ############ ###
+def get_faithfulness_args():
+    parser = ArgumentParser()
+    parser.add_argument("-experiment_id", type=str, required=True)
+    parser.add_argument("-xai_algorithm", type=str, required=True, choices=EXPLAINERS)
+    parser.add_argument("-xai_entry", type=str, required=True)
+    parser.add_argument("-mask_ceil", type=float, required=True)
+    parser.add_argument("-mask_step", type=float, required=True)
+    parser.add_argument("-mask_rule", type=str, required=True, choices=["saliency", "random"])
+    parser.add_argument("-patches_color", type=str, required=True, choices=["green", "red"])
+    parser.add_argument("-keep_masked_pages", type=str2bool, default=False)
+    parser.add_argument("-keep_test_sets", type=str2bool, default=False)
+    return parser.parse_args()
+
+def validate_faithfulness_args(experiment_id, xai_algorithm, mask_ceil, mask_step, xai_entry, xai_metadata):
+    error_trigger = False
+    
+    if xai_algorithm not in xai_metadata:
+        logger.critical(f"'{xai_algorithm}' has not been used to generate explanations for '{experiment_id}'.")
+        error_trigger = True
+    
+    if xai_entry not in xai_metadata[xai_algorithm]:
+        logger.error(f"'{xai_entry}' configuration has not been used to generate explanations for '{experiment_id}' with '{xai_algorithm}'.")
+        error_trigger = True
+    
+    if mask_ceil <= 0 or mask_ceil > 1:
+        logger.critical("mask_ceil must be a float in the range (0, 1]")
+        error_trigger = True
+    
+    if mask_step <= 0 or mask_step > 1:
+        logger.critical("mask_step must be a float in the range (0, 1]")
+        error_trigger = True
+    
+    if mask_step >= mask_ceil:
+        logger.critical("mask_step must be less than mask_ceil to ensure at least one masking step.")
+        error_trigger = True
+    
+    if error_trigger: sys.exit()
