@@ -11,6 +11,10 @@ from src.utils.explain.general_utils import setup_explainer, execute_pages_prepr
 from src.utils.explain.instance_to_explain_retriever import InstanceToExplainRetriever
 
 logger = Logger()
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+torch.use_deterministic_algorithms(True)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 if __name__ == "__main__":
     EXPERIMENT_ID, XAI_ALGORITHM, XAI_DETAILS, SUBSAMPLE, SAVE_SAMPLES, SEG_TYPE, PATCH_DIM, NUM_SAMPLES, KERNEL_WIDTH = get_explain_args()
@@ -37,7 +41,7 @@ if __name__ == "__main__":
         torch.cuda.empty_cache()
         n_devices = torch.cuda.device_count()
         logger.info(f"Device(s): {[torch.cuda.get_device_name(i) for i in range(n_devices)]}")
-    
+
     model, _ = load_model(EXPERIMENT_ID, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", FT_METADATA)
     model.to(DEVICE)
     model.eval()

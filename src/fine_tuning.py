@@ -12,6 +12,9 @@ from src.utils.models.model_utils import load_model, train_model, test_model
 
 logger = Logger()
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+torch.use_deterministic_algorithms(True)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 if __name__ == "__main__":
     EXPERIMENT_ID, METRIC, CH_LAYERS, CROP_SIZE, BATCH_SIZE, OPTIMIZER, LR, LR_SCHEDULER, LR_FINAL_DECAY_RATIO, WEIGHT_DECAY, LABEL_SMOOTHING, EARLY_STOPPING, TRAIN_REPLICAS, RANDOM_SEED, EPOCHS, FT_MODE, KEEP_CROPS = get_ft_args()
@@ -49,9 +52,6 @@ if __name__ == "__main__":
             np.random.seed(RANDOM_SEED)
             torch.manual_seed(RANDOM_SEED)
             if torch.cuda.is_available(): torch.cuda.manual_seed_all(RANDOM_SEED)
-        torch.use_deterministic_algorithms(True)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
         
         model, last_cp = load_model(EXPERIMENT_ID, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", FT_METADATA)
         
