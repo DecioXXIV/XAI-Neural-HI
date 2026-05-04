@@ -143,9 +143,8 @@ class BaseLimeExplainer(BaseExplainer):
     def _kernel(d: np.ndarray, kernel_width: float) -> np.ndarray:
         return np.sqrt(np.exp(-(d**2) / (kernel_width ** 2)))
     
-    def compute_sample_weights(self, perturbed_bin_vectors: np.ndarray) -> np.ndarray | None:
-        """Subclasses override this method"""
-        return None
+    @abstractmethod
+    def compute_sample_weights(self, perturbed_bin_vectors: np.ndarray) -> np.ndarray | None: pass
     
     def compute_attr_scores(self, bin_vectors: np.ndarray, preds: np.ndarray, label: int, crop_segments: np.ndarray, sp_names: np.ndarray) -> Tuple[Dict[int, float], float | None]:
         # Centering the predictions around the original image prediction
