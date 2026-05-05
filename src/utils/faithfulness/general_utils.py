@@ -35,15 +35,6 @@ def get_masker(experiment_id: str, xai_algorithm: str, xai_entry: str, seg_type:
     
     return maskers[seg_type][mask_rule](experiment_id, xai_algorithm, xai_entry, mask_rates, patches_color, masking_color)
 
-def create_subdirectories(experiment_id: str, xai_algorithm: str, xai_entry: str, faithfulness_entry: str):
-    experiment_faith_dir = os.path.join(EXPERIMENTS_ROOT, experiment_id, "faithfulness", xai_algorithm, xai_entry, faithfulness_entry)
-    eval_dir_crop_level = os.path.join(experiment_faith_dir, "crop_level")
-    eval_dir_page_level = os.path.join(experiment_faith_dir, "page_level")
-    test_sets_dir = os.path.join(experiment_faith_dir, "test_sets")
-    os.makedirs(eval_dir_crop_level, exist_ok=True)
-    os.makedirs(eval_dir_page_level, exist_ok=True)
-    os.makedirs(test_sets_dir, exist_ok=True)
-
 def create_test_sets(experiment_id: str, xai_algorithm: str, xai_entry: str, faith_entry: str, mask_rates: List[float], xai_instances_metadata: Dict[str, Any], dataset: str, classes: List[str], crop_size: int):
     instance_names = list(xai_instances_metadata["INSTANCES"].keys())
 
