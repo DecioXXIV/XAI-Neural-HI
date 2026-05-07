@@ -6,8 +6,8 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from src.utils.constants import EXPERIMENTS_ROOT
 
 class CheckpointSaver:
-    def __init__(self, experiment_id: str, metric: str):
-        self.checkpoint_dir = os.path.join(EXPERIMENTS_ROOT, experiment_id, "fine_tuning", "checkpoints")
+    def __init__(self, base_dir: str, metric: str):
+        self.checkpoint_dir = os.path.join(base_dir, "checkpoints")
         os.makedirs(self.checkpoint_dir, exist_ok=True)
         self.metric = metric
     

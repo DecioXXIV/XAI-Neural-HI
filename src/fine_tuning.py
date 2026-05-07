@@ -4,7 +4,7 @@ import numpy as np
 from datetime import datetime
 
 from cli.arg_parsers import get_ft_args
-from src.utils.constants import EXPERIMENTS_ROOT
+from src.utils.constants import METADATA_ROOT, EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 from src.utils.metadata.metadata_utils import get_experiment_metadata, get_ft_metadata, initialize_ft_metadata, add_timestamp_to_ft_metadata
 from src.utils.fine_tuning.general_utils import create_dataset, get_train_rgb_mean_std, get_dataloader, remove_subdirectories
@@ -22,6 +22,7 @@ if __name__ == "__main__":
     EXP_METADATA = get_experiment_metadata(EXPERIMENT_ID)
     FT_METADATA = get_ft_metadata(EXPERIMENT_ID)
     FT_METADATA = initialize_ft_metadata(EXPERIMENT_ID, FT_METADATA, METRIC, CH_LAYERS, CROP_SIZE, BATCH_SIZE, OPTIMIZER, LR, LR_SCHEDULER, LR_FINAL_DECAY_RATIO, WEIGHT_DECAY, LABEL_SMOOTHING, EARLY_STOPPING, TRAIN_REPLICAS, RANDOM_SEED, EPOCHS, FT_MODE)
+    FT_METADATA_PATH = os.path.join(METADATA_ROOT, EXPERIMENT_ID, "ft-metadata.json")
     
     EXPERIMENT_FT_DIR = os.path.join(EXPERIMENTS_ROOT, EXPERIMENT_ID, "fine_tuning")
     os.makedirs(EXPERIMENT_FT_DIR, exist_ok=True)
@@ -53,11 +54,11 @@ if __name__ == "__main__":
             torch.manual_seed(RANDOM_SEED)
             if torch.cuda.is_available(): torch.cuda.manual_seed_all(RANDOM_SEED)
         
-        model, last_cp = load_model(EXPERIMENT_ID, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", FT_METADATA)
+        model, last_cp = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", FT_METADATA)
         
         train_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "train"), CLASSES, "train", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE, RANDOM_SEED)
         val_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "val"), CLASSES, "val", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
-        train_model(EXPERIMENT_ID, model, train_dl, val_dl, DEVICE, FT_METADATA, last_cp)
+        train_model(EXPERIMENT_FT_DIR, model, train_dl, val_dl, DEVICE, FT_METADATA, FT_METADATA_PATH, last_cp)
 
         add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_FINE_TUNING", str(datetime.now()))
         torch.cuda.empty_cache()
@@ -71,10 +72,10 @@ if __name__ == "__main__":
         logger.info(f"PHASE 3 -> MODEL TESTING")
         
         mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
-        model, _ = load_model(EXPERIMENT_ID, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", FT_METADATA)
-        test_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "test"), CLASSES, "test", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
+        model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", FT_METADATA)
+        test_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "test"), CLASSES, "test", 4*BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
         
-        test_model(EXPERIMENT_ID, model, test_dl, DEVICE, FT_METADATA, EXP_METADATA)
+        test_model(EXPERIMENT_FT_DIR, model, test_dl, DEVICE, FT_METADATA, EXP_METADATA)
         
         logger.info("Model testing completed successfully!\n")
         

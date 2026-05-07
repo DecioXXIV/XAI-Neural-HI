@@ -7,8 +7,8 @@ from src.utils.constants import EXPERIMENTS_ROOT
 PHASES = ["train", "val"]
 
 class HistoryHandler:
-    def __init__(self, experiment_id: str):
-        self.history_dir = os.path.join(EXPERIMENTS_ROOT, experiment_id, "fine_tuning", "history")
+    def __init__(self, base_dir: str):
+        self.history_dir = os.path.join(base_dir, "history")
         os.makedirs(self.history_dir, exist_ok=True)
     
     def load_history(self) -> Dict[str, Dict[str, List[float]]]:

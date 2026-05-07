@@ -1,7 +1,6 @@
 import os, torch
 from typing import List, Tuple, Dict, Any
 
-from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 from src.models.resnet18 import ResNet18
 from src.models.swintiny import SwinTiny
@@ -9,8 +8,8 @@ from src.models.swintiny import SwinTiny
 logger = Logger()
 
 class ModelLoader:
-    def __init__(self, experiment_id: str, model_name: str, classes: List[str], ft_mode: str, phase: str, ft_metadata: Dict[str, Any]):
-        self.experiment_id = experiment_id
+    def __init__(self, base_dir: str, model_name: str, classes: List[str], ft_mode: str, phase: str, ft_metadata: Dict[str, Any]):
+        self.base_dir = base_dir
         self.model_name = model_name
         self.classes = classes
         self.ft_mode = ft_mode
@@ -24,8 +23,6 @@ class ModelLoader:
         if self.model_name == "ResNet18": model = ResNet18(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
         elif self.model_name == "SwinTiny": model = SwinTiny(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
             
-        experiment_ft_dir = os.path.join(EXPERIMENTS_ROOT, self.experiment_id, "fine_tuning")
-            
         if self.phase == "train":
             if "EPOCHS_COMPLETED" in self.ft_metadata["FINE_TUNING_DETAILS"]:
                 epochs = self.ft_metadata["HYPERPARAMETERS"]["total_epochs"]
@@ -34,12 +31,12 @@ class ModelLoader:
                     
                 logger.warning(f"Resuming Fine-Tuning from a previous checkpoint: {epochs_completed}/{epochs} epochs have already been completed, {epochs_remaining} remaining...\n")
                     
-                last_cp_path = os.path.join(experiment_ft_dir, "checkpoints", "last_checkpoint.pth")
+                last_cp_path = os.path.join(self.base_dir, "checkpoints", "last_checkpoint.pth")
                 last_cp = torch.load(last_cp_path)
                 model.load_state_dict(last_cp["model_state_dict"])
             
         else:
-            cp_to_test_path = os.path.join(experiment_ft_dir, "checkpoints", "val_best_model.pth")
+            cp_to_test_path = os.path.join(self.base_dir, "checkpoints", "val_best_model.pth")
             cp_to_test = torch.load(cp_to_test_path)
             model.load_state_dict(cp_to_test["model_state_dict"])
                 

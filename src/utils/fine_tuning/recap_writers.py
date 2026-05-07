@@ -7,7 +7,6 @@ from typing import List, Dict
 from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader
 
-from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 
 logger = Logger()
@@ -15,9 +14,9 @@ logger = Logger()
 METRIC_SERIES = ["losses", "accs", "macrof1s", "weightedf1s"]
 
 class TrainingRecapWriter:
-    def __init__(self, experiment_id: str):
-        self.experiment_id = experiment_id
-        self.history_dir = os.path.join(EXPERIMENTS_ROOT, experiment_id, "fine_tuning", "history")
+    def __init__(self, base_dir: str):
+        self.base_dir = base_dir
+        self.history_dir = os.path.join(base_dir, "history")
     
     def _create_metric_recaps(self):
         metric_recap_dict = {}
@@ -98,13 +97,13 @@ class TrainingRecapWriter:
         self._plot_learning_rates()
 
 class TestingRecapWriter:
-    def __init__(self, experiment_id: str, test_dl: DataLoader):
-        self.experiment_id = experiment_id
+    def __init__(self, base_dir: str, test_dl: DataLoader):
+        self.base_dir = base_dir
         self.c_to_idx = test_dl.dataset.class_to_idx
         self.idx_to_c = {v: k for k, v in self.c_to_idx.items()}
         self.target_names = list(self.c_to_idx.keys())
 
-        self.output_dir = os.path.join(EXPERIMENTS_ROOT, experiment_id, "fine_tuning", "output")
+        self.output_dir = os.path.join(self.base_dir, "output")
         os.makedirs(self.output_dir, exist_ok=True)
 
     def _produce_confusion_matrix(self, level: str, labels: List[int], preds: List[int]) -> None:

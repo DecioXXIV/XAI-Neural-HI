@@ -20,8 +20,8 @@ from src.utils.data.dataloaders import TrainDataLoader, TestDataLoader
 logger = Logger()
 
 class ModelTrainer:
-    def __init__(self, experiment_id: str, model: nn.Module, train_dl: TrainDataLoader, val_dl: TestDataLoader, device: str, ft_metadata: Dict[str, Any], last_cp: Dict[str, Any] | None = None):
-        self.experiment_id = experiment_id
+    def __init__(self, base_dir: str, model: nn.Module, train_dl: TrainDataLoader, val_dl: TestDataLoader, device: str, ft_metadata: Dict[str, Any], last_cp: Dict[str, Any] | None = None):
+        self.base_dir = base_dir
         self.model = model
         self.train_dl = train_dl
         self.val_dl = val_dl
@@ -153,7 +153,7 @@ class ModelTrainer:
         ds_target_np = torch.cat(ds_target).cpu().numpy()
         return val_loss / total_samples, val_acc / total_samples, f1_score(ds_target_np, ds_output_np, average='macro'), f1_score(ds_target_np, ds_output_np, average='weighted')
 
-    def __call__(self):
+    def __call__(self, ft_metadata_path: str):
         self.model.to(self.device)
         if torch.cuda.device_count() > 1:
             logger.info(f"Using {torch.cuda.device_count()} GPUs with DataParallel.")
@@ -162,7 +162,7 @@ class ModelTrainer:
         optimizer = self._set_optimizer(weight_decay=self.ft_metadata["HYPERPARAMETERS"]["weight_decay"])
         scheduler = self._set_scheduler(optimizer)
 
-        history_handler = HistoryHandler(self.experiment_id)
+        history_handler = HistoryHandler(self.base_dir)
         history = history_handler.load_history()
 
         lower_is_better = self.metric == "loss"
@@ -172,7 +172,7 @@ class ModelTrainer:
         best_metric_v = agg(history["val"][self.metric]) if history["val"][self.metric] else default_best
 
         start_epoch = self.ft_metadata["FINE_TUNING_DETAILS"].get("EPOCHS_COMPLETED", 0) + 1
-        checkpoint_saver = CheckpointSaver(self.experiment_id, self.metric)
+        checkpoint_saver = CheckpointSaver(self.base_dir, self.metric)
 
         trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         logger.info(f"Fine-tuning mode: '{self.ft_metadata['HYPERPARAMETERS']['ft_mode']}'")
@@ -226,7 +226,6 @@ class ModelTrainer:
             history_handler.save_history(history)
 
             self.ft_metadata["FINE_TUNING_DETAILS"]["EPOCHS_COMPLETED"] = epoch
-            ft_metadata_path = os.path.join(METADATA_ROOT, self.experiment_id, "ft-metadata.json")
             MetadataHandler(ft_metadata_path).save_metadata(self.ft_metadata)
 
             if self.use_early_stopping:

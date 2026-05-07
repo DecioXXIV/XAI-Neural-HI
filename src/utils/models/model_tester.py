@@ -5,14 +5,13 @@ from typing import Dict, Any, Tuple, List
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
-from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 
 logger = Logger()
 
 class ModelTester:
-    def __init__(self, experiment_id: str, model: nn.Module, test_dl: DataLoader, device: str, ft_metadata: Dict[str, Any], exp_metadata: Dict[str, Any]):
-        self.experiment_id = experiment_id
+    def __init__(self, base_dir: str, model: nn.Module, test_dl: DataLoader, device: str, ft_metadata: Dict[str, Any], exp_metadata: Dict[str, Any]):
+        self.base_dir = base_dir
         self.model = model
         self.test_dl = test_dl
         self.device = device
@@ -23,7 +22,7 @@ class ModelTester:
         self.idx_to_c = {v: k for k, v in self.c_to_idx.items()}
         self.target_names = list(self.c_to_idx.keys())
         
-        with open(os.path.join(EXPERIMENTS_ROOT, experiment_id, "fine_tuning", "class_to_idx.json"), "w") as f:
+        with open(os.path.join(self.base_dir, "class_to_idx.json"), "w") as f:
             json.dump(self.c_to_idx, f)
 
     def _predict(self) -> Tuple[List[int], List[int], List[List[float]], List[List[float]]]:
@@ -50,7 +49,7 @@ class ModelTester:
         return labels, preds, logits, probs
     
     def _infer_page_level_predictions(self, crop_labels: List[int], crop_preds: List[int]) -> Tuple[List[int], List[int], Dict[str, List[int]]]:
-        crops_per_instance_dict_path = os.path.join(EXPERIMENTS_ROOT, self.experiment_id, "fine_tuning", "n_crops_per_instance.json")
+        crops_per_instance_dict_path = os.path.join(self.base_dir, "n_crops_per_instance.json")
         with open(crops_per_instance_dict_path, "r") as f: crops_per_test_instance_dict = json.load(f)["test"]
         # crop_per_test_instance_dict = {"page_path": n_crops_extracted_from_that_page}
         
