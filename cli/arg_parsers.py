@@ -187,3 +187,71 @@ def validate_faithfulness_args(experiment_id, xai_algorithm, mask_ceil, mask_ste
         error_trigger = True
     
     if error_trigger: sys.exit()
+
+### ########### ###
+### RE-TRAINING ###
+### ########### ###
+def get_retraining_args():
+    parser = ArgumentParser()
+    parser.add_argument("-experiment_id", type=str, required=True)
+    parser.add_argument("-xai_algorithm", type=str, required=True, choices=EXPLAINERS)
+    parser.add_argument("-xai_entry", type=str, required=True)
+    parser.add_argument("-original_ts_ratio", type=float, required=True)
+    parser.add_argument("-new_ts_ratio", type=float, required=True)
+    parser.add_argument("-selection_rule", type=str, required=True, choices=["saliency", "random"])
+    parser.add_argument("-start_point", type=str, required=True, choices=["from_zero", "from_ft1"])
+    parser.add_argument("-batch_size", type=int, required=True)
+    parser.add_argument("-weight_decay", type=float, default=0.0001)
+    parser.add_argument("-lr", type=float, required=True)
+    parser.add_argument("-lr_final_decay_ratio", type=float, default=0.01)
+    parser.add_argument("-label_smoothing", type=float, default=0.0)
+    parser.add_argument("-random_seed", type=int, default=None)
+    parser.add_argument("-epochs", type=int, default=50)
+    parser.add_argument("-ft_mode", type=str, required=True, choices=FT_MODES)
+    parser.add_argument("-keep_crops", type=str2bool, default=False)
+    return _validate_retraining_args(parser.parse_args())
+
+def _validate_retraining_args(args):
+    experiment_id = args.experiment_id
+    xai_algorithm, xai_entry = args.xai_algorithm, args.xai_entry
+    original_ts_ratio, new_ts_ratio, selection_rule = args.original_ts_ratio, args.new_ts_ratio, args.selection_rule
+    start_point, batch_size, lr, lr_final_decay_ratio, weight_decay, label_smoothing = args.start_point, args.batch_size, args.lr, args.lr_final_decay_ratio, args.weight_decay, args.label_smoothing
+    random_seed, epochs, ft_mode, keep_crops = args.random_seed, args.epochs, args.ft_mode, args.keep_crops
+    
+    error_trigger = False
+    if not (0 < original_ts_ratio <= 1):
+        logger.critical("original_ts_ratio must be a float in the range (0, 1]")
+        error_trigger = True
+    if not (0 < new_ts_ratio <= 1):
+        logger.critical("new_ts_ratio must be a float in the range (0, 1]")
+        error_trigger = True
+    if batch_size <= 0: 
+        logger.critical("batch_size must be a positive integer")
+        error_trigger = True
+    if lr <= 0: 
+        logger.critical("lr must be a positive float")
+        error_trigger = True
+    if not (0 < lr_final_decay_ratio < 1):
+        logger.critical("lr_final_decay_ratio must be a float in the range (0, 1)")
+        error_trigger = True
+    if not (0 <= weight_decay < 1):
+        logger.critical("weight_decay must be a non-negative float less than 1")
+        error_trigger = True
+    if not (0 <= label_smoothing < 1):
+        logger.critical("label_smoothing must be a non-negative float less than 1")
+        error_trigger = True
+    if epochs <= 0: 
+        logger.critical("epochs must be a positive integer")
+        error_trigger = True
+    if random_seed is not None and random_seed < 0:
+        logger.critical("random_seed must be a non-negative integer")
+        error_trigger = True
+    
+    if error_trigger: sys.exit()
+    
+    if random_seed is None:
+        random_seed = int(np.random.randint(0, 2**32 - 1))
+        logger.warning(f"No random_seed provided. Using '{random_seed}' (randomly generated).")
+
+    return experiment_id, xai_algorithm, xai_entry, original_ts_ratio, new_ts_ratio, selection_rule, start_point, batch_size, lr, lr_final_decay_ratio, weight_decay, label_smoothing, random_seed, epochs, ft_mode, keep_crops
+    

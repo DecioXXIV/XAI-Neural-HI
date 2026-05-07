@@ -98,3 +98,33 @@ def add_end_timestamp_to_faithfulness_metadata(experiment_id: str, faith_metadat
     faith_metadata[xai_algorithm][xai_entry][faith_entry] = timestamp
     faith_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "faithfulness-metadata.json")
     MetadataHandler(faith_metadata_path).save_metadata(faith_metadata)
+
+def get_retrain_metadata(experiment_id: str, original_ts_ratio: float, new_ts_ratio: float, selection_rule: str, random_seed: int) -> Dict[str, Any]:
+    retrain_metadata_dir = os.path.join(METADATA_ROOT, experiment_id, "retraining")
+    os.makedirs(retrain_metadata_dir, exist_ok=True)
+    retrain_metadata_path = os.path.join(retrain_metadata_dir, f"{selection_rule}-original{original_ts_ratio}-new{new_ts_ratio}-random_seed{random_seed}-retrain-metadata.json")
+    return MetadataHandler(retrain_metadata_path).load_metadata()
+
+def add_timestamp_to_retrain_metadata(retrain_metadata: Dict[str, Any], retrain_metadata_path: str, key: str, timestamp: Any):
+    retrain_metadata["TIMESTAMPS"][key] = timestamp
+    MetadataHandler(retrain_metadata_path).save_metadata(retrain_metadata)
+
+def initialize_retrain_metadata(experiment_id: str, retrain_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], xai_algorithm: str, xai_entry: str,
+                                original_ts_ratio: float, new_ts_ratio: float, selection_rule: str, batch_size: int, lr: float, lr_final_decay_ratio: float, 
+                                weight_decay: float, label_smoothing: float, random_seed: int, epochs: int, ft_mode: str, start_point: str) -> Dict[str, Any]:
+    
+    metric, ch_layers, crop_size = ft_metadata["HYPERPARAMETERS"]["metric"], ft_metadata["HYPERPARAMETERS"]["ch_layers"], ft_metadata["HYPERPARAMETERS"]["crop_size"]
+    opt, lr_scheduler, early_stopping = ft_metadata["HYPERPARAMETERS"]["optimizer"], ft_metadata["HYPERPARAMETERS"]["lr_scheduler"], ft_metadata["HYPERPARAMETERS"]["early_stopping"]
+    
+    if "HYPERPARAMETERS" not in retrain_metadata:
+        retrain_metadata["HYPERPARAMETERS"] = {"xai_algorithm": xai_algorithm, "xai_entry": xai_entry, "original_ts_ratio": original_ts_ratio, "new_ts_ratio": new_ts_ratio, 
+                                               "selection_rule": selection_rule, "metric": metric, "ch_layers": ch_layers, "crop_size": crop_size, "batch_size": batch_size, "optimizer": opt, "lr": lr, 
+                                               "lr_scheduler": lr_scheduler, "lr_final_decay_ratio": lr_final_decay_ratio, "weight_decay": weight_decay, "label_smoothing": label_smoothing, 
+                                               "early_stopping": early_stopping, "random_seed": random_seed, "total_epochs": epochs, "ft_mode": ft_mode, "start_point": start_point}
+    if "FINE_TUNING_DETAILS" not in retrain_metadata: retrain_metadata["FINE_TUNING_DETAILS"] = {}
+    if "TIMESTAMPS" not in retrain_metadata: retrain_metadata["TIMESTAMPS"] = {}
+    
+    retrain_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "retraining", f"{ft_mode}-{start_point}", selection_rule, f"original{original_ts_ratio}-new{new_ts_ratio}", f"random_seed{random_seed}", "retrain-metadata.json")
+    os.makedirs(os.path.dirname(retrain_metadata_path), exist_ok=True)
+    MetadataHandler(retrain_metadata_path).save_metadata(retrain_metadata)
+    return retrain_metadata, retrain_metadata_path
