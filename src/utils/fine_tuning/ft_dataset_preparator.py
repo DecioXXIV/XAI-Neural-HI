@@ -1,4 +1,4 @@
-import os, shutil, random
+import os, shutil
 from typing import List, Dict
 from random import Random
 from PIL import Image
@@ -46,6 +46,7 @@ class FTDatasetPreparator:
                     crops_per_instance[phase][inst_filepath] = future.result()
         
         self._create_validation_set(crops_per_instance)
+        
         return crops_per_instance
 
     def _extract_crops_from_instance(self, instance_filepath: str, phase: str, train_replicas: int, crop_retriever: CropRetriever) -> int:
