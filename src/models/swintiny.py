@@ -59,7 +59,7 @@ class SwinTiny(nn.Module):
         batch = torch.stack([self._inference_transforms(i) for i in inputs], dim=0).to(device)
         
         self.eval()
-        with torch.no_grad():
+        with torch.inference_mode():
             _fn = forward_fn if forward_fn is not None else self
             logits = _fn(batch)
             if apply_softmax:

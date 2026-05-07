@@ -29,7 +29,7 @@ class ModelTester:
         labels, preds, logits, probs = [], [], [], []
         pbar = tqdm(self.test_dl, desc="Testing (Crop-Level)", dynamic_ncols=True)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             for data, target in pbar:
                 if data.dim() == 4:
                     labels.extend(target.numpy().tolist())

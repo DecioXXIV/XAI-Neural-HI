@@ -131,7 +131,7 @@ class ModelTrainer:
         ds_output, ds_target = [], []
         pbar = tqdm(self.v_dl, desc="Validation", dynamic_ncols=True)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             for data, target in pbar:
                 bs = data.size(0)
                 data, target = data.to(self.device), target.to(self.device)
