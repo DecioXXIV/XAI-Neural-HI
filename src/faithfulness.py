@@ -32,6 +32,7 @@ if __name__ == "__main__":
     FAITH_ENTRY = f"{MASK_RULE}-ceil{MASK_CEIL}-step{MASK_STEP}-{PATCHES_COLOR}"
     
     if FAITH_ENTRY not in FAITH_METADATA[XAI_ALGORITHM][XAI_ENTRY]:
+        EXPERIMENT_FT_DIR = os.path.join(EXPERIMENTS_ROOT, EXPERIMENT_ID, "fine_tuning")
         EXPERIMENT_FAITH_DIR = os.path.join(EXPERIMENTS_ROOT, EXPERIMENT_ID, "faithfulness", XAI_ALGORITHM, XAI_ENTRY, FAITH_ENTRY)
         os.makedirs(EXPERIMENT_FAITH_DIR, exist_ok=True)
         
@@ -63,7 +64,7 @@ if __name__ == "__main__":
             logger.info(f"Device(s): {[torch.cuda.get_device_name(i) for i in range(n_devices)]}")
 
         MODEL_NAME = EXP_METADATA.get("MODEL_NAME")
-        model, _ = load_model(EXPERIMENT_ID, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", FT_METADATA)
+        model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", FT_METADATA)
         model.to(DEVICE)
         model.eval()
         
