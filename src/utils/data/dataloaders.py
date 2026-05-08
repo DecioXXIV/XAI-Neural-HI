@@ -86,11 +86,10 @@ class BaseDataLoader(ABC):
         self.std = std_
         self.device = device
         
-        self.num_workers = 8
-        # self.pin_memory = self.device == "cuda"
-        self.pin_memory = False
+        self.num_workers = 4
+        self.pin_memory = self.device == "cuda"
         self.persistent_workers = self.num_workers > 0
-        self.prefetch_factor = 4
+        self.prefetch_factor = 2
     
     def generate_dataset(self) -> ImageFolder:
         dataset = ImageFolder(root=self.directory, transform=self.compose_transform())
