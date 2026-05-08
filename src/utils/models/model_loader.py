@@ -76,4 +76,4 @@ class FineTunedToRetrainModelLoader:
             model.load_state_dict(cp_to_load["model_state_dict"])
             
         logger.info(f"...Fine-Tuned Model successfully loaded!")
-        return model, cp_to_load
+        return model, last_cp
