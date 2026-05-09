@@ -13,8 +13,9 @@ from src.utils.models.model_tester import ModelTester
 logger = Logger()
 
 class FaithfulnessEvaluator:
-    def __init__(self, experiment_id: str, xai_algorithm: str, xai_entry: str, faith_entry: str, mask_rates: List[float], mask_rule: str):
+    def __init__(self, experiment_id: str, experiment_ft_dir: str, xai_algorithm: str, xai_entry: str, faith_entry: str, mask_rates: List[float], mask_rule: str):
         self.experiment_id = experiment_id
+        self.experiment_ft_dir = experiment_ft_dir
         self.xai_algorithm = xai_algorithm
         self.xai_entry = xai_entry
         self.faith_entry = faith_entry
@@ -70,7 +71,7 @@ class FaithfulnessEvaluator:
                 test_loader = TestDataLoader(current_test_set_dir, classes, batch_size, crop_size, mean_, std_, device)
                 dataset, test_dl = test_loader.load_data()
 
-                model_tester = ModelTester(self.experiment_id, model, test_dl, device, ft_metadata, exp_metadata)
+                model_tester = ModelTester(self.experiment_ft_dir, model, test_dl, device, ft_metadata, exp_metadata)
                 cl_labels, cl_preds, cl_logits, cl_probs, crop_preds_per_page, pl_labels, pl_preds = model_tester()
 
                 cl_accuracy, pl_accuracy = accuracy_score(cl_labels, cl_preds), accuracy_score(pl_labels, pl_preds)
