@@ -68,7 +68,7 @@ if __name__ == "__main__":
         model.to(DEVICE)
         model.eval()
         
-        faith_evaluator = FaithfulnessEvaluator(EXPERIMENT_ID, XAI_ALGORITHM, XAI_ENTRY, FAITH_ENTRY, mask_rates, MASK_RULE)
+        faith_evaluator = FaithfulnessEvaluator(EXPERIMENT_ID, EXPERIMENT_FT_DIR, XAI_ALGORITHM, XAI_ENTRY, FAITH_ENTRY, mask_rates, MASK_RULE)
         faith_evaluator(model, CLASSES, mean_, std_, EXP_METADATA, FT_METADATA, DEVICE)
         add_end_timestamp_to_faithfulness_metadata(EXPERIMENT_ID, FAITH_METADATA, XAI_ALGORITHM, XAI_ENTRY, FAITH_ENTRY, str(datetime.now()))
         
