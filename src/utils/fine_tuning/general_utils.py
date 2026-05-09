@@ -20,8 +20,8 @@ def get_train_rgb_mean_std(experiment_ft_dir: str, dataset: str, classes: List[s
     train_mean_std_computer = TrainRGBMeanStdComputer(experiment_ft_dir, dataset, classes)
     return train_mean_std_computer()
 
-def get_dataloader(directory: str, classes: List[str], phase: str, batch_size: int, model_input_size: int, mean_: List[float], std_: List[float], device: str, random_seed: int | None = None, epoch: int = 1):
-    if phase == "train": return TrainDataLoader(directory, classes, batch_size, model_input_size, mean_, std_, device, random_seed, epoch)
+def get_dataloader(directory: str, classes: List[str], phase: str, batch_size: int, model_input_size: int, mean_: List[float], std_: List[float], device: str, random_seed: int | None = None, train_transforms: str = None, epoch: int = 1):
+    if phase == "train": return TrainDataLoader(directory, classes, batch_size, model_input_size, mean_, std_, device, random_seed, train_transforms, epoch)
     else: return TestDataLoader(directory, classes, batch_size, model_input_size, mean_, std_, device)
 
 def remove_subdirectories(experiment_ft_dir: str, dataset: str, classes: List[str]):

@@ -28,11 +28,11 @@ def create_exp_metadata(experiment_id: str, model_name: str, dataset: str, class
     logger.info(f"Metadata successfully created for Experiment: '{experiment_id}'\n")
 
 def initialize_ft_metadata(experiment_id: str, ft_metadata: Dict[str, Any], metric: str, ch_layers: str, crop_size: int, batch_size: int, opt: str, lr: float, lr_scheduler: str, lr_final_decay_ratio: float, 
-                           weight_decay: float, label_smoothing: float, early_stopping: str, train_replicas: int, random_seed: int, epochs: int, ft_mode: str) -> Dict[str, Any]:
+                           weight_decay: float, label_smoothing: float, early_stopping_patience: int, train_replicas: int, random_seed: int, epochs: int, train_transforms: str, ft_mode: str) -> Dict[str, Any]:
     if "HYPERPARAMETERS" not in ft_metadata:
         ft_metadata["HYPERPARAMETERS"] = {"metric": metric, "ch_layers": ch_layers, "crop_size": crop_size, "batch_size": batch_size, "optimizer": opt, "lr": lr,
                                           "lr_scheduler": lr_scheduler, "lr_final_decay_ratio": lr_final_decay_ratio, "weight_decay": weight_decay, "label_smoothing": label_smoothing, 
-                                          "early_stopping": early_stopping, "train_replicas": train_replicas, "random_seed": random_seed, "total_epochs": epochs, "ft_mode": ft_mode}
+                                          "early_stopping_patience": early_stopping_patience, "train_replicas": train_replicas, "random_seed": random_seed, "total_epochs": epochs, "train_transforms": train_transforms, "ft_mode": ft_mode}
     if "FINE_TUNING_DETAILS" not in ft_metadata: ft_metadata["FINE_TUNING_DETAILS"] = {}
     if "TIMESTAMPS" not in ft_metadata: ft_metadata["TIMESTAMPS"] = {}
     

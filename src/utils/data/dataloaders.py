@@ -1,6 +1,5 @@
 import torch
 import random
-import numpy as np
 from abc import ABC, abstractmethod
 from typing import List, Tuple
 from torchvision import transforms as T
@@ -8,6 +7,7 @@ from torchvision.datasets import ImageFolder
 from torchvision.transforms import v2
 from torch.utils.data import DataLoader, Sampler
 
+from src.utils.data.dataset_utils import get_train_transforms
 from src.utils.data.custom_transforms import Invert, AddGaussianNoise
 
 # ====================================== #
@@ -132,9 +132,10 @@ class TrainDataLoader(BaseDataLoader):
 
     def __init__(self, directory: str, classes: List[str], batch_size: int,
                  model_input_size: int, mean_: List[float], std_: List[float],
-                 device: str, random_seed: int, epoch: int = 1):
+                 device: str, random_seed: int, train_transforms: str, epoch: int = 1):
         super().__init__(directory, classes, batch_size, model_input_size, mean_, std_, device)
         self.random_seed = random_seed
+        self.train_transforms = train_transforms
         self.epoch = epoch
         self._dataset: DeterministicAugmentedDataset | None = None
         self._sampler: PrecomputedOrderSampler | None = None
@@ -142,28 +143,33 @@ class TrainDataLoader(BaseDataLoader):
 
     def _get_transforms_as_list(self) -> list:
         mean_int = tuple(int(m * 255) for m in self.mean)
-        cjitter        = {'brightness': [0.4, 1.3], 'contrast': 0.6, 'saturation': 0.6, 'hue': (-0.4, 0.4)}
-        randaffine     = {'degrees': [-10, 10], 'translate': [0.2, 0.2], 'scale': [1.3, 1.4], 'shear': 1, 'interpolation': v2.InterpolationMode.BILINEAR, 'fill': mean_int}
-        randpersp      = {'distortion_scale': 0.1, 'p': 0.2, 'interpolation': v2.InterpolationMode.BILINEAR, 'fill': mean_int}
-        gray_p         = 0.2
-        gaussian_blur  = {'kernel_size': 3, 'sigma': [0.1, 0.5]}
-        rand_eras      = {'p': 0.5, 'scale': [0.02, 0.33], 'ratio': [0.3, 3.3], 'value': self.mean}
-        invert_p       = 0.05
-        gaussian_noise = {'mean': 0., 'std': 0.004}
-        gn_p           = 0.0
+        transforms_dict = get_train_transforms(self.train_transforms)
+        
+        cjitter        = transforms_dict.get("cjitter")
+        cjitter_p      = transforms_dict.get("cjitter_p")
+        randaffine     = transforms_dict.get("randaffine")
+        randaffine_p   = transforms_dict.get("randaffine_p")
+        randpersp      = transforms_dict.get("randpersp")
+        gray_p         = transforms_dict.get("gray_p")
+        gaussian_blur  = transforms_dict.get("gaussian_blur")
+        blur_p         = transforms_dict.get("blur_p")
+        rand_eras      = transforms_dict.get("rand_eras")
+        invert_p       = transforms_dict.get("invert_p")
+        gaussian_noise = transforms_dict.get("gaussian_noise")
+        gn_p           = transforms_dict.get("gn_p")
         
         return [
-            T.Resize((self.model_input_size, self.model_input_size)),   # 0 - deterministic
-            T.ColorJitter(**cjitter),                                   # 1 - random
-            T.RandomAffine(**randaffine),                               # 2 - random
-            T.RandomPerspective(**randpersp),                           # 3 - random
-            T.GaussianBlur(**gaussian_blur),                            # 4 - random
-            T.RandomGrayscale(p=gray_p),                                # 5 - random
-            T.ToTensor(),                                               # 6 - deterministic
-            T.RandomErasing(**rand_eras),                               # 7 - random
-            T.RandomApply([Invert()], p=invert_p),                      # 8 - random
-            T.Normalize(mean=self.mean, std=self.std),                  # 9 - deterministic
-            T.RandomApply([AddGaussianNoise(**gaussian_noise)], p=gn_p) # 10 - random
+            T.Resize((self.model_input_size, self.model_input_size)),                                                                   # 0 - deterministic
+            T.RandomApply([T.ColorJitter(**cjitter)], p=cjitter_p),                                                                     # 1 - random
+            T.RandomApply([T.RandomAffine(**randaffine, interpolation=v2.InterpolationMode.BILINEAR, fill=mean_int)], p=randaffine_p),  # 2 - random
+            T.RandomPerspective(**randpersp, interpolation=v2.InterpolationMode.BILINEAR, fill=mean_int),                               # 3 - random
+            T.RandomApply([T.GaussianBlur(**gaussian_blur)], p=blur_p),                                                                 # 4 - random
+            T.RandomGrayscale(p=gray_p),                                                                                                # 5 - random
+            T.ToTensor(),                                                                                                               # 6 - deterministic
+            T.RandomErasing(**rand_eras, value=self.mean),                                                                              # 7 - random
+            T.RandomApply([Invert()], p=invert_p),                                                                                      # 8 - random
+            T.Normalize(mean=self.mean, std=self.std),                                                                                  # 9 - deterministic
+            T.RandomApply([AddGaussianNoise(**gaussian_noise)], p=gn_p)                                                                 # 10 - random
         ]
 
     def compose_transform(self) -> T.Compose: return T.Compose(self._get_transforms_as_list())

@@ -6,9 +6,7 @@ from tqdm import tqdm
 from sklearn.metrics import f1_score
 from torch.optim import Optimizer, SGD, Adam, AdamW
 from torch.optim.lr_scheduler import LRScheduler, CosineAnnealingLR
-from torch.utils.data import DataLoader
 
-from src.utils.constants import METADATA_ROOT
 from src.utils.logger import Logger
 from src.utils.fine_tuning.checkpoint_saver import CheckpointSaver
 from src.utils.fine_tuning.history_handler import HistoryHandler
@@ -35,7 +33,7 @@ class ModelTrainer:
         self.lr = ft_metadata["HYPERPARAMETERS"]["lr"]
         self.scheduler_type = ft_metadata["HYPERPARAMETERS"]["lr_scheduler"]
         self.lr_final_decay_ratio = ft_metadata["HYPERPARAMETERS"]["lr_final_decay_ratio"]
-        self.use_early_stopping = ft_metadata["HYPERPARAMETERS"]["early_stopping"]
+        self.early_stopping_patience = ft_metadata["HYPERPARAMETERS"]["early_stopping_patience"]
         self.num_epochs = ft_metadata["HYPERPARAMETERS"]["total_epochs"]
         
         _, self.t_dl = self.train_dl.load_data()
@@ -46,12 +44,8 @@ class ModelTrainer:
         if self.last_cp is not None and self.last_cp.get("scaler_state_dict") is not None:
             self.scaler.load_state_dict(self.last_cp["scaler_state_dict"])
 
-        if self.use_early_stopping:
-            self.max_epochs = 200
-            self.early_stopping = EarlyStopping(metric=self.metric, patience=10, delta=0.0, max_epochs=self.max_epochs)
-        else:
-            self.early_stopping = None
-            self.max_epochs = self.num_epochs
+        self.max_epochs = 200
+        self.early_stopping = EarlyStopping(metric=self.metric, patience=self.early_stopping_patience, delta=0.0, max_epochs=self.max_epochs)
 
     def _set_optimizer(self, weight_decay: float) -> Optimizer:
         if self.optimizer_type.lower() == "sgd":
@@ -178,12 +172,10 @@ class ModelTrainer:
         logger.info(f"Fine-tuning mode: '{self.ft_metadata['HYPERPARAMETERS']['ft_mode']}'")
         logger.info(f"Trainable parameters: {trainable_params}")
 
-        if self.use_early_stopping:
-            logger.warning(f"Early Stopping enabled: Max Epochs = {self.max_epochs}")
-            logger.warning(f"Validation {self.metric.capitalize()} check triggers from epoch: {self.num_epochs}")
-            if start_epoch > 1:
-                self.early_stopping.load_state_dict(self.last_cp["early_stopping"])
-            self.early_stopping.set_best_val_metric(best_metric_v)
+        logger.warning(f"Early Stopping enabled: Max Epochs = {self.max_epochs}")
+        logger.warning(f"Validation {self.metric.capitalize()} check triggers from epoch: {self.num_epochs}")
+        if start_epoch > 1: self.early_stopping.load_state_dict(self.last_cp["early_stopping"])
+        self.early_stopping.set_best_val_metric(best_metric_v)
 
         for epoch in range(start_epoch, self.max_epochs + 1):
             logger.info(f"Epoch {epoch} / {self.max_epochs}")
@@ -228,12 +220,9 @@ class ModelTrainer:
             self.ft_metadata["FINE_TUNING_DETAILS"]["EPOCHS_COMPLETED"] = epoch
             MetadataHandler(ft_metadata_path).save_metadata(self.ft_metadata)
 
-            if self.use_early_stopping:
-                if epoch <= self.num_epochs:
-                    self.early_stopping.step_before_trigger(val_metric_value)
-                else:
-                    if self.early_stopping.step(val_metric_value):
-                        break
+            if epoch <= self.num_epochs: self.early_stopping.step_before_trigger(val_metric_value)
+            else:
+                if self.early_stopping.step(val_metric_value): break
             
             if scheduler is not None:
                 scheduler.step()

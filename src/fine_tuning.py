@@ -17,11 +17,11 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 if __name__ == "__main__":
-    EXPERIMENT_ID, METRIC, CH_LAYERS, CROP_SIZE, BATCH_SIZE, OPTIMIZER, LR, LR_SCHEDULER, LR_FINAL_DECAY_RATIO, WEIGHT_DECAY, LABEL_SMOOTHING, EARLY_STOPPING, TRAIN_REPLICAS, RANDOM_SEED, EPOCHS, FT_MODE, KEEP_CROPS = get_ft_args()
+    EXPERIMENT_ID, METRIC, CH_LAYERS, CROP_SIZE, BATCH_SIZE, OPTIMIZER, LR, LR_SCHEDULER, LR_FINAL_DECAY_RATIO, WEIGHT_DECAY, LABEL_SMOOTHING, EARLY_STOPPING_PATIENCE, TRAIN_REPLICAS, RANDOM_SEED, EPOCHS, TRAIN_TRANSFORMS, FT_MODE, KEEP_CROPS = get_ft_args()
     
     EXP_METADATA = get_experiment_metadata(EXPERIMENT_ID)
     FT_METADATA = get_ft_metadata(EXPERIMENT_ID)
-    FT_METADATA = initialize_ft_metadata(EXPERIMENT_ID, FT_METADATA, METRIC, CH_LAYERS, CROP_SIZE, BATCH_SIZE, OPTIMIZER, LR, LR_SCHEDULER, LR_FINAL_DECAY_RATIO, WEIGHT_DECAY, LABEL_SMOOTHING, EARLY_STOPPING, TRAIN_REPLICAS, RANDOM_SEED, EPOCHS, FT_MODE)
+    FT_METADATA = initialize_ft_metadata(EXPERIMENT_ID, FT_METADATA, METRIC, CH_LAYERS, CROP_SIZE, BATCH_SIZE, OPTIMIZER, LR, LR_SCHEDULER, LR_FINAL_DECAY_RATIO, WEIGHT_DECAY, LABEL_SMOOTHING, EARLY_STOPPING_PATIENCE, TRAIN_REPLICAS, RANDOM_SEED, EPOCHS, TRAIN_TRANSFORMS, FT_MODE)
     FT_METADATA_PATH = os.path.join(METADATA_ROOT, EXPERIMENT_ID, "ft-metadata.json")
     
     EXPERIMENT_FT_DIR = os.path.join(EXPERIMENTS_ROOT, EXPERIMENT_ID, "fine_tuning")
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         
         model, last_cp = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", FT_METADATA)
         
-        train_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "train"), CLASSES, "train", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE, RANDOM_SEED)
+        train_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "train"), CLASSES, "train", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE, RANDOM_SEED, TRAIN_TRANSFORMS)
         val_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "val"), CLASSES, "val", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
         train_model(EXPERIMENT_FT_DIR, model, train_dl, val_dl, DEVICE, FT_METADATA, FT_METADATA_PATH, last_cp)
 
