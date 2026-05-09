@@ -54,7 +54,8 @@ def get_ft_args():
     parser.add_argument("-lr_scheduler", type=str, required=True, choices=LR_SCHEDULERS)
     parser.add_argument("-lr_final_decay_ratio", type=float, default=0.01)
     parser.add_argument("-label_smoothing", type=float, default=0.0)
-    parser.add_argument("-early_stopping_patience", type=int, default=5)
+    parser.add_argument("-early_stopping", type=str2bool, default=True)
+    parser.add_argument("-early_stopping_patience", type=int, default=None)
     parser.add_argument("-train_replicas", type=int, default=1)
     parser.add_argument("-random_seed", type=int, default=None)
     parser.add_argument("-epochs", type=int, default=50)
@@ -67,7 +68,7 @@ def _validate_ft_args(args):
     experiment_id = args.experiment_id
     metric, ch_layers, batch_size, crop_size = args.steering_metric, args.ch_layers, args.batch_size, args.crop_size
     opt, lr, lr_scheduler, lr_final_decay_ratio, weight_decay, label_smoothing = args.opt, args.lr, args.lr_scheduler, args.lr_final_decay_ratio, args.weight_decay, args.label_smoothing
-    early_stopping_patience, train_replicas, random_seed, epochs, train_transforms, ft_mode, keep_crops = args.early_stopping_patience, args.train_replicas, args.random_seed, args.epochs, args.train_img_transforms, args.ft_mode, args.keep_crops
+    early_stopping, early_stopping_patience, train_replicas, random_seed, epochs, train_transforms, ft_mode, keep_crops = args.early_stopping, args.early_stopping_patience, args.train_replicas, args.random_seed, args.epochs, args.train_img_transforms, args.ft_mode, args.keep_crops
     
     error_trigger = False
     if crop_size <= 0: 
@@ -88,8 +89,8 @@ def _validate_ft_args(args):
     if not (0 <= label_smoothing < 1):
         logger.critical("label_smoothing must be a non-negative float less than 1")
         error_trigger = True
-    if early_stopping_patience < 0:
-        logger.critical("early_stopping_patience must be a non-negative integer")
+    if early_stopping and (early_stopping_patience is None or early_stopping_patience <= 0):
+        logger.critical("early_stopping_patience must be a positive integer when early_stopping is enabled")
         error_trigger = True
     if train_replicas <= 0: 
         logger.critical("train_replicas must be a positive integer")
@@ -104,7 +105,7 @@ def _validate_ft_args(args):
         logger.warning(f"No random_seed provided or invalid value. Using '{random_seed}' (randomly generated).")
         random_seed = int(np.random.randint(0, 2**32 - 1))
 
-    return experiment_id, metric, ch_layers, crop_size, batch_size, opt, lr, lr_scheduler, lr_final_decay_ratio, weight_decay, label_smoothing, early_stopping_patience, train_replicas, random_seed, epochs, train_transforms, ft_mode, keep_crops
+    return experiment_id, metric, ch_layers, crop_size, batch_size, opt, lr, lr_scheduler, lr_final_decay_ratio, weight_decay, label_smoothing, early_stopping, early_stopping_patience, train_replicas, random_seed, epochs, train_transforms, ft_mode, keep_crops
 
 ### ####### ###
 ### EXPLAIN ###
