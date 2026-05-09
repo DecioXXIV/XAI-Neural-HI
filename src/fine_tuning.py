@@ -64,7 +64,7 @@ if __name__ == "__main__":
         torch.cuda.empty_cache()
         
         logger.info("Model fine-tuning completed successfully!\n")
-    
+
     ### PHASE 3: MODEL TESTING ###
     if "MODEL_TESTING" in FT_METADATA["TIMESTAMPS"]:
         logger.warning("Skipping PHASE 3 (Model Testing): it has already been completed!\n")
@@ -74,15 +74,12 @@ if __name__ == "__main__":
         mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
         model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", FT_METADATA)
         test_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "test"), CLASSES, "test", 4*BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
-        
         test_model(EXPERIMENT_FT_DIR, model, test_dl, DEVICE, FT_METADATA, EXP_METADATA)
-        
-        logger.info("Model testing completed successfully!\n")
-        
-        logger.info(f"PHASE 4 -> DATA & METADATA HANDLING")
-        if not KEEP_CROPS: remove_subdirectories(EXPERIMENT_FT_DIR, DATASET, CLASSES)
         
         add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_TESTING", str(datetime.now()))
         torch.cuda.empty_cache()
-        
-        logger.info(f"*** Experiment: {EXPERIMENT_ID} -> END OF FINE TUNING-PROCESS ***\n")
+        logger.info("Model testing completed successfully!\n")
+
+    if not KEEP_CROPS: remove_subdirectories(EXPERIMENT_FT_DIR, DATASET, CLASSES)
+    
+    logger.info(f"*** Experiment: {EXPERIMENT_ID} -> END OF FINE TUNING-PROCESS ***\n")
