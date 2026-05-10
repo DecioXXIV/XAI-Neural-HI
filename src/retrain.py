@@ -8,7 +8,7 @@ from src.utils.logger import Logger
 from src.utils.metadata.metadata_utils import get_ft_metadata, get_experiment_metadata, get_retrain_metadata, initialize_retrain_metadata, add_timestamp_to_retrain_metadata
 from src.utils.models.model_utils import load_model, train_model, test_model
 from src.utils.fine_tuning.general_utils import get_train_rgb_mean_std, get_dataloader, remove_subdirectories
-from src.utils.retraining.general_utils import retrieve_original_dataset, compute_old_new_crop_counts, get_cls_to_crop, retrieve_ft1_train_crops_coordinates, compute_xai_agg_scores, load_ft_model, compute_inference_probs, compute_crop_scores, extract_crops, extract_random_crops, retrieve_xai_guided_crops
+from src.utils.retraining.general_utils import retrieve_original_dataset, compute_old_new_crop_counts, get_cls_to_crop, retrieve_ft1_train_crops_coordinates, compute_xai_agg_scores, load_ft_model, compute_inference_probs, compute_crop_scores, extract_crops, extract_random_crops, retrieve_xai_guided_crops, extract_memory_crops, extract_xai_guided_crops
 
 logger = Logger()
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
@@ -49,8 +49,10 @@ if __name__ == "__main__":
     logger.info(f"Original Training Set Ratio: {ORIGINAL_TS_RATIO} | New Training Set Ratio: {NEW_TS_RATIO} | Random Seed: {RANDOM_SEED}\n")
     
     retrieve_original_dataset(EXPERIMENT_RETRAIN_ROOT, DATASET, CLASSES, CROP_SIZE)
-    n_to_class_old, n_to_class_new = compute_old_new_crop_counts(EXPERIMENT_RETRAIN_ROOT, CLASSES, ORIGINAL_TS_RATIO, NEW_TS_RATIO)
+    
+    # n_to_class_old, n_to_class_new = compute_old_new_crop_counts(EXPERIMENT_RETRAIN_ROOT, CLASSES, ORIGINAL_TS_RATIO, NEW_TS_RATIO)
     # n_to_class_xyz: Dict[str, int] = {class_name: num_crops}
+    
     cls_to_ft1_train_crop, idx_to_cls = get_cls_to_crop(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_FT_DIR, "ft1_train")
     # cls_to_crop: Dict[str, str] = {crop_path: class_name}
     # idx_to_cls: Dict[str, int] = {class_name: class_idx}
@@ -65,8 +67,10 @@ if __name__ == "__main__":
     compute_inference_probs(EXPERIMENT_RETRAIN_ROOT, model, CLASSES, 4*BATCH_SIZE, CROP_SIZE, mean_, std_, DEVICE, "memory")
     
     compute_crop_scores(EXPERIMENT_RETRAIN_ROOT, cls_to_ft1_train_crop, "memory")
-    extract_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, CLASSES, cls_to_ft1_train_crop, n_to_class_old, "memory")
-
+    
+    # extract_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, CLASSES, cls_to_ft1_train_crop, n_to_class_old, "memory")
+    new_to_class = extract_memory_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, CLASSES, cls_to_ft1_train_crop, ORIGINAL_TS_RATIO)
+    
     ### PHASE 2: NEW CROPS EXTRACTION (XAI-GUIDED) ###
     print()
     logger.info("PHASE 2 -> NEW CROPS EXTRACTION (XAI-GUIDED)")
@@ -79,10 +83,12 @@ if __name__ == "__main__":
         compute_inference_probs(EXPERIMENT_RETRAIN_ROOT, model, CLASSES, 4*BATCH_SIZE, CROP_SIZE, mean_, std_, DEVICE, "openness")
     
         compute_crop_scores(EXPERIMENT_RETRAIN_ROOT, cls_to_xai_guided_crop, "openness")
-        extract_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, CLASSES, cls_to_xai_guided_crop, n_to_class_new, "openness")
+        
+        # extract_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, CLASSES, cls_to_xai_guided_crop, n_to_class_new, "openness")
+        extract_xai_guided_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, CLASSES, cls_to_xai_guided_crop, new_to_class)
     
     else: # SELECTION_RULE == "random"
-        extract_random_crops(EXPERIMENT_RETRAIN_DIR, EXPERIMENT_XAI_DIR, DATASET, CLASSES, CROP_SIZE, n_to_class_new, RANDOM_SEED)
+        extract_random_crops(EXPERIMENT_RETRAIN_DIR, EXPERIMENT_XAI_DIR, DATASET, CLASSES, CROP_SIZE, new_to_class, RANDOM_SEED)
     
     if "MODEL_FINE_TUNING" in RETRAIN_METADATA["TIMESTAMPS"]:
         logger.warning("Skipping PHASE 3 (Model Re-Training): it has already been completed!\n")

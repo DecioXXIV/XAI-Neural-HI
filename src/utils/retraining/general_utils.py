@@ -134,6 +134,37 @@ def compute_crop_scores(base_dir: str, cls_to_crop: Dict[str, str], score_type: 
             scores[crop] = probs[crop] * xai_agg_scores[crop]
         
         with open(output_path, 'w') as f: json.dump(scores, f, indent=4)
+    
+def extract_memory_crops(base_dir: str, dst_dir: str, classes: List[str], cls_to_crop: Dict[str, str], original_ts_ratio: float) -> Dict[str, int]:
+    with open(os.path.join(base_dir, "mem_to_t1_train_crop.json"), 'r') as f: memory_scores = json.load(f)
+    
+    n_to_keep = int(np.ceil(len(cls_to_crop) * original_ts_ratio))
+    sorted_memory_scores = {k: v for k, v in sorted(memory_scores.items(), key=lambda item: item[1], reverse=True)}
+    selected_crops = list(sorted_memory_scores.keys())[:n_to_keep]
+    
+    ft1_crops_to_cls = {c: len([crop for crop in cls_to_crop.keys() if cls_to_crop[crop] == c]) for c in classes}
+    retrieved_to_cls = {c: 0 for c in classes}
+
+    for crop in selected_crops:
+        cls = cls_to_crop[crop]
+        retrieved_to_cls[cls] += 1
+        shutil.copyfile(crop, os.path.join(dst_dir, "train", cls, os.path.basename(crop)))
+    
+    for cls in classes: logger.info(f"Class '{cls}': {retrieved_to_cls[cls]} memory crops retrieved.")
+    
+    new_to_class = {c: ft1_crops_to_cls[c] - retrieved_to_cls[c] for c in classes}
+    return new_to_class
+
+def extract_xai_guided_crops(base_dir: str, dst_dir: str, classes: List[str], cls_to_crop: Dict[str, str], new_to_class: Dict[str, int]):
+    with open(os.path.join(base_dir, "openness_to_xai_crop.json"), 'r') as f: openness_scores = json.load(f)
+    
+    for cls in classes:
+        openness_scores_to_cls_crops = {crop: openness_scores[crop] for crop in cls_to_crop.keys() if cls_to_crop[crop] == cls}
+        sorted_openness_scores_to_cls_crops = {k: v for k, v in sorted(openness_scores_to_cls_crops.items(), key=lambda item: item[1], reverse=True)}
+        
+        to_retrieve = list(sorted_openness_scores_to_cls_crops.keys())[:new_to_class[cls]]
+        for crop in to_retrieve: shutil.copyfile(crop, os.path.join(dst_dir, "train", cls, os.path.basename(crop)))
+        logger.info(f"Class '{cls}': {new_to_class[cls]} XAI-guided crops retrieved.")
 
 def extract_crops(base_dir: str, dst_dir: str, classes: List[str], cls_to_crop: Dict[str, str], n_to_class: Dict[str, int], score_type: str):
     cfg = CROP_SET_CONFIGS[score_type]
