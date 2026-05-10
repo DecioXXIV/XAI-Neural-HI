@@ -111,16 +111,17 @@ def add_timestamp_to_retrain_metadata(retrain_metadata: Dict[str, Any], retrain_
 
 def initialize_retrain_metadata(experiment_id: str, retrain_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], xai_algorithm: str, xai_entry: str,
                                 original_ts_ratio: float, new_ts_ratio: float, selection_rule: str, batch_size: int, lr: float, lr_final_decay_ratio: float, 
-                                weight_decay: float, label_smoothing: float, random_seed: int, epochs: int, ft_mode: str, start_point: str) -> Dict[str, Any]:
+                                weight_decay: float, label_smoothing: float, early_stopping: bool, early_stopping_patience: int, random_seed: int, epochs: int, train_img_transforms: str, ft_mode: str, start_point: str) -> Dict[str, Any]:
     
     metric, ch_layers, crop_size = ft_metadata["HYPERPARAMETERS"]["metric"], ft_metadata["HYPERPARAMETERS"]["ch_layers"], ft_metadata["HYPERPARAMETERS"]["crop_size"]
-    opt, lr_scheduler, early_stopping = ft_metadata["HYPERPARAMETERS"]["optimizer"], ft_metadata["HYPERPARAMETERS"]["lr_scheduler"], ft_metadata["HYPERPARAMETERS"]["early_stopping"]
+    opt, lr_scheduler = ft_metadata["HYPERPARAMETERS"]["optimizer"], ft_metadata["HYPERPARAMETERS"]["lr_scheduler"]
     
     if "HYPERPARAMETERS" not in retrain_metadata:
         retrain_metadata["HYPERPARAMETERS"] = {"xai_algorithm": xai_algorithm, "xai_entry": xai_entry, "original_ts_ratio": original_ts_ratio, "new_ts_ratio": new_ts_ratio, 
                                                "selection_rule": selection_rule, "metric": metric, "ch_layers": ch_layers, "crop_size": crop_size, "batch_size": batch_size, "optimizer": opt, "lr": lr, 
                                                "lr_scheduler": lr_scheduler, "lr_final_decay_ratio": lr_final_decay_ratio, "weight_decay": weight_decay, "label_smoothing": label_smoothing, 
-                                               "early_stopping": early_stopping, "random_seed": random_seed, "total_epochs": epochs, "ft_mode": ft_mode, "start_point": start_point}
+                                               "early_stopping": early_stopping, "early_stopping_patience": early_stopping_patience, "random_seed": random_seed, "total_epochs": epochs, 
+                                               "train_img_transforms": train_img_transforms, "ft_mode": ft_mode, "start_point": start_point}
     if "FINE_TUNING_DETAILS" not in retrain_metadata: retrain_metadata["FINE_TUNING_DETAILS"] = {}
     if "TIMESTAMPS" not in retrain_metadata: retrain_metadata["TIMESTAMPS"] = {}
     

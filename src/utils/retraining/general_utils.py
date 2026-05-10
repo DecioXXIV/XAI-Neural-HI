@@ -135,7 +135,7 @@ def compute_crop_scores(base_dir: str, cls_to_crop: Dict[str, str], score_type: 
         
         with open(output_path, 'w') as f: json.dump(scores, f, indent=4)
     
-def extract_memory_crops(base_dir: str, dst_dir: str, classes: List[str], cls_to_crop: Dict[str, str], original_ts_ratio: float) -> Dict[str, int]:
+def extract_memory_crops(base_dir: str, dst_dir: str, classes: List[str], cls_to_crop: Dict[str, str], original_ts_ratio: float, new_ts_ratio: float) -> Dict[str, int]:
     with open(os.path.join(base_dir, "mem_to_t1_train_crop.json"), 'r') as f: memory_scores = json.load(f)
     
     n_to_keep = int(np.ceil(len(cls_to_crop) * original_ts_ratio))
@@ -152,7 +152,7 @@ def extract_memory_crops(base_dir: str, dst_dir: str, classes: List[str], cls_to
     
     for cls in classes: logger.info(f"Class '{cls}': {retrieved_to_cls[cls]} memory crops retrieved.")
     
-    new_to_class = {c: ft1_crops_to_cls[c] - retrieved_to_cls[c] for c in classes}
+    new_to_class = {c: int(np.ceil(ft1_crops_to_cls[c] * new_ts_ratio)) - retrieved_to_cls[c] for c in classes}
     return new_to_class
 
 def extract_xai_guided_crops(base_dir: str, dst_dir: str, classes: List[str], cls_to_crop: Dict[str, str], new_to_class: Dict[str, int]):

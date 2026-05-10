@@ -17,12 +17,12 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 if __name__ == "__main__":
-    EXPERIMENT_ID, XAI_ALGORITHM, XAI_ENTRY, ORIGINAL_TS_RATIO, NEW_TS_RATIO, SELECTION_RULE, START_POINT, BATCH_SIZE, LR, LR_FINAL_DECAY_RATIO, WEIGHT_DECAY, LABEL_SMOOTHING, RANDOM_SEED, EPOCHS, FT_MODE, KEEP_CROPS = get_retraining_args()
+    EXPERIMENT_ID, XAI_ALGORITHM, XAI_ENTRY, ORIGINAL_TS_RATIO, NEW_TS_RATIO, SELECTION_RULE, START_POINT, BATCH_SIZE, LR, LR_FINAL_DECAY_RATIO, WEIGHT_DECAY, LABEL_SMOOTHING, EARLY_STOPPING, EARLY_STOPPING_PATIENCE, RANDOM_SEED, EPOCHS, TRAIN_TRANSFORMS, FT_MODE, KEEP_CROPS = get_retraining_args()
     
     EXP_METADATA, FT_METADATA = get_experiment_metadata(EXPERIMENT_ID), get_ft_metadata(EXPERIMENT_ID)
     RETRAIN_METADATA = get_retrain_metadata(EXPERIMENT_ID, ORIGINAL_TS_RATIO, NEW_TS_RATIO, SELECTION_RULE, RANDOM_SEED)
     
-    RETRAIN_METADATA, RETRAIN_METADATA_PATH = initialize_retrain_metadata(EXPERIMENT_ID, RETRAIN_METADATA, FT_METADATA, XAI_ALGORITHM, XAI_ENTRY, ORIGINAL_TS_RATIO, NEW_TS_RATIO, SELECTION_RULE, BATCH_SIZE, LR, LR_FINAL_DECAY_RATIO, WEIGHT_DECAY, LABEL_SMOOTHING, RANDOM_SEED, EPOCHS, FT_MODE, START_POINT)
+    RETRAIN_METADATA, RETRAIN_METADATA_PATH = initialize_retrain_metadata(EXPERIMENT_ID, RETRAIN_METADATA, FT_METADATA, XAI_ALGORITHM, XAI_ENTRY, ORIGINAL_TS_RATIO, NEW_TS_RATIO, SELECTION_RULE, BATCH_SIZE, LR, LR_FINAL_DECAY_RATIO, WEIGHT_DECAY, LABEL_SMOOTHING, EARLY_STOPPING, EARLY_STOPPING_PATIENCE, RANDOM_SEED, EPOCHS, TRAIN_TRANSFORMS, FT_MODE, START_POINT)
     
     EXPERIMENT_FT_DIR       = os.path.join(EXPERIMENTS_ROOT, EXPERIMENT_ID, "fine_tuning")
     EXPERIMENT_XAI_DIR      = os.path.join(EXPERIMENTS_ROOT, EXPERIMENT_ID, "xai", XAI_ALGORITHM, XAI_ENTRY)
@@ -64,12 +64,12 @@ if __name__ == "__main__":
     retrieve_ft1_train_crops_coordinates(EXPERIMENT_RETRAIN_ROOT, DATASET, CLASSES, CROP_SIZE)
     compute_xai_agg_scores(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_XAI_DIR, "memory")
     # compute_centroids_and_sigmas_for_ft1_classes(EXPERIMENT_RETRAIN_ROOT, model, CLASSES, mean_, std_, DEVICE, BATCH_SIZE, CROP_SIZE)
-    compute_inference_probs(EXPERIMENT_RETRAIN_ROOT, model, CLASSES, 4*BATCH_SIZE, CROP_SIZE, mean_, std_, DEVICE, "memory")
+    compute_inference_probs(EXPERIMENT_RETRAIN_ROOT, model, CLASSES, BATCH_SIZE, CROP_SIZE, mean_, std_, DEVICE, "memory")
     
     compute_crop_scores(EXPERIMENT_RETRAIN_ROOT, cls_to_ft1_train_crop, "memory")
     
     # extract_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, CLASSES, cls_to_ft1_train_crop, n_to_class_old, "memory")
-    new_to_class = extract_memory_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, CLASSES, cls_to_ft1_train_crop, ORIGINAL_TS_RATIO)
+    new_to_class = extract_memory_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, CLASSES, cls_to_ft1_train_crop, ORIGINAL_TS_RATIO, NEW_TS_RATIO)
     
     ### PHASE 2: NEW CROPS EXTRACTION (XAI-GUIDED) ###
     print()
@@ -80,7 +80,7 @@ if __name__ == "__main__":
         cls_to_xai_guided_crop, _ = get_cls_to_crop(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_FT_DIR, "xai_guided")
     
         compute_xai_agg_scores(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_XAI_DIR, "openness")
-        compute_inference_probs(EXPERIMENT_RETRAIN_ROOT, model, CLASSES, 4*BATCH_SIZE, CROP_SIZE, mean_, std_, DEVICE, "openness")
+        compute_inference_probs(EXPERIMENT_RETRAIN_ROOT, model, CLASSES, BATCH_SIZE, CROP_SIZE, mean_, std_, DEVICE, "openness")
     
         compute_crop_scores(EXPERIMENT_RETRAIN_ROOT, cls_to_xai_guided_crop, "openness")
         
@@ -104,7 +104,7 @@ if __name__ == "__main__":
         else: # START_POINT == "from_ft1"
             model, last_cp = load_ft_model(EXPERIMENT_FT_DIR, EXPERIMENT_RETRAIN_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, RETRAIN_METADATA)
         
-        train_dl = get_dataloader(os.path.join(EXPERIMENT_RETRAIN_DIR, "train"), CLASSES, "train", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE, RANDOM_SEED)
+        train_dl = get_dataloader(os.path.join(EXPERIMENT_RETRAIN_DIR, "train"), CLASSES, "train", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE, RANDOM_SEED, TRAIN_TRANSFORMS)
         val_dl = get_dataloader(os.path.join(EXPERIMENT_RETRAIN_ROOT, "val"), CLASSES, "val", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
         train_model(EXPERIMENT_RETRAIN_DIR, model, train_dl, val_dl, DEVICE, RETRAIN_METADATA, RETRAIN_METADATA_PATH, last_cp)
         

@@ -102,8 +102,8 @@ def _validate_ft_args(args):
     if error_trigger: sys.exit()
     
     if random_seed is None or random_seed < 0:
-        logger.warning(f"No random_seed provided or invalid value. Using '{random_seed}' (randomly generated).")
         random_seed = int(np.random.randint(0, 2**32 - 1))
+        logger.warning(f"No random_seed provided or invalid value. Using '{random_seed}' (randomly generated).")
 
     return experiment_id, metric, ch_layers, crop_size, batch_size, opt, lr, lr_scheduler, lr_final_decay_ratio, weight_decay, label_smoothing, early_stopping, early_stopping_patience, train_replicas, random_seed, epochs, train_transforms, ft_mode, keep_crops
 
@@ -207,8 +207,11 @@ def get_retraining_args():
     parser.add_argument("-lr", type=float, required=True)
     parser.add_argument("-lr_final_decay_ratio", type=float, default=0.01)
     parser.add_argument("-label_smoothing", type=float, default=0.0)
+    parser.add_argument("-early_stopping", type=str2bool, default=True)
+    parser.add_argument("-early_stopping_patience", type=int, default=None)
     parser.add_argument("-random_seed", type=int, default=None)
     parser.add_argument("-epochs", type=int, default=50)
+    parser.add_argument("-train_img_transforms", type=str, required=True, choices=TRAIN_AUG_TRANSFORMS)
     parser.add_argument("-ft_mode", type=str, required=True, choices=FT_MODES)
     parser.add_argument("-keep_crops", type=str2bool, default=False)
     return _validate_retraining_args(parser.parse_args())
@@ -218,7 +221,7 @@ def _validate_retraining_args(args):
     xai_algorithm, xai_entry = args.xai_algorithm, args.xai_entry
     original_ts_ratio, new_ts_ratio, selection_rule = args.original_ts_ratio, args.new_ts_ratio, args.selection_rule
     start_point, batch_size, lr, lr_final_decay_ratio, weight_decay, label_smoothing = args.start_point, args.batch_size, args.lr, args.lr_final_decay_ratio, args.weight_decay, args.label_smoothing
-    random_seed, epochs, ft_mode, keep_crops = args.random_seed, args.epochs, args.ft_mode, args.keep_crops
+    early_stopping, early_stopping_patience, random_seed, epochs, train_img_transforms, ft_mode, keep_crops = args.early_stopping, args.early_stopping_patience, args.random_seed, args.epochs, args.train_img_transforms, args.ft_mode, args.keep_crops
     
     error_trigger = False
     if not (0 < original_ts_ratio <= 1):
@@ -242,6 +245,9 @@ def _validate_retraining_args(args):
     if not (0 <= label_smoothing < 1):
         logger.critical("label_smoothing must be a non-negative float less than 1")
         error_trigger = True
+    if early_stopping and (early_stopping_patience is None or early_stopping_patience <= 0):
+        logger.critical("early_stopping_patience must be a positive integer when early_stopping is enabled")
+        error_trigger = True
     if epochs <= 0: 
         logger.critical("epochs must be a positive integer")
         error_trigger = True
@@ -255,5 +261,5 @@ def _validate_retraining_args(args):
         random_seed = int(np.random.randint(0, 2**32 - 1))
         logger.warning(f"No random_seed provided. Using '{random_seed}' (randomly generated).")
 
-    return experiment_id, xai_algorithm, xai_entry, original_ts_ratio, new_ts_ratio, selection_rule, start_point, batch_size, lr, lr_final_decay_ratio, weight_decay, label_smoothing, random_seed, epochs, ft_mode, keep_crops
+    return experiment_id, xai_algorithm, xai_entry, original_ts_ratio, new_ts_ratio, selection_rule, start_point, batch_size, lr, lr_final_decay_ratio, weight_decay, label_smoothing, early_stopping, early_stopping_patience, random_seed, epochs, train_img_transforms, ft_mode, keep_crops
     
