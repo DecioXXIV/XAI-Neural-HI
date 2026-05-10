@@ -225,8 +225,8 @@ def _validate_retraining_args(args):
     early_stopping, early_stopping_patience, random_seed, epochs, train_img_transforms, ft_mode, keep_crops = args.early_stopping, args.early_stopping_patience, args.random_seed, args.epochs, args.train_img_transforms, args.ft_mode, args.keep_crops
     
     error_trigger = False
-    if not (0 < original_ts_ratio <= 1):
-        logger.critical("original_ts_ratio must be a float in the range (0, 1]")
+    if not (0 <= original_ts_ratio <= 1):
+        logger.critical("original_ts_ratio must be a float in the range [0, 1]")
         error_trigger = True
     if not (0 < new_ts_ratio <= 1):
         logger.critical("new_ts_ratio must be a float in the range (0, 1]")

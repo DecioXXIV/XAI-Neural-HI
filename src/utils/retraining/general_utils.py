@@ -148,7 +148,9 @@ def extract_memory_crops(base_dir: str, dst_dir: str, classes: List[str], cls_to
     for crop in selected_crops:
         cls = cls_to_crop[crop]
         retrieved_to_cls[cls] += 1
-        shutil.copyfile(crop, os.path.join(dst_dir, "train", cls, os.path.basename(crop)))
+        dst_class_dir = os.path.join(dst_dir, "train", cls)
+        os.makedirs(dst_class_dir, exist_ok=True)
+        shutil.copyfile(crop, os.path.join(dst_class_dir, os.path.basename(crop)))
     
     for cls in classes: logger.info(f"Class '{cls}': {retrieved_to_cls[cls]} memory crops retrieved.")
     
@@ -159,11 +161,13 @@ def extract_xai_guided_crops(base_dir: str, dst_dir: str, classes: List[str], cl
     with open(os.path.join(base_dir, "openness_to_xai_crop.json"), 'r') as f: openness_scores = json.load(f)
     
     for cls in classes:
+        dst_class_dir = os.path.join(dst_dir, "train", cls)
+        os.makedirs(dst_class_dir, exist_ok=True)
         openness_scores_to_cls_crops = {crop: openness_scores[crop] for crop in cls_to_crop.keys() if cls_to_crop[crop] == cls}
         sorted_openness_scores_to_cls_crops = {k: v for k, v in sorted(openness_scores_to_cls_crops.items(), key=lambda item: item[1], reverse=True)}
         
-        to_retrieve = list(sorted_openness_scores_to_cls_crops.keys())[:new_to_class[cls]]
-        for crop in to_retrieve: shutil.copyfile(crop, os.path.join(dst_dir, "train", cls, os.path.basename(crop)))
+        selected_crops = list(sorted_openness_scores_to_cls_crops.keys())[:new_to_class[cls]]
+        for crop in selected_crops: shutil.copyfile(crop, os.path.join(dst_class_dir, os.path.basename(crop)))
         logger.info(f"Class '{cls}': {new_to_class[cls]} XAI-guided crops retrieved.")
 
 def extract_crops(base_dir: str, dst_dir: str, classes: List[str], cls_to_crop: Dict[str, str], n_to_class: Dict[str, int], score_type: str):
