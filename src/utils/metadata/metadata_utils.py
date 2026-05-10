@@ -110,11 +110,10 @@ def add_timestamp_to_retrain_metadata(retrain_metadata: Dict[str, Any], retrain_
     MetadataHandler(retrain_metadata_path).save_metadata(retrain_metadata)
 
 def initialize_retrain_metadata(experiment_id: str, retrain_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], xai_algorithm: str, xai_entry: str,
-                                original_ts_ratio: float, new_ts_ratio: float, selection_rule: str, batch_size: int, lr: float, lr_final_decay_ratio: float, 
+                                original_ts_ratio: float, new_ts_ratio: float, selection_rule: str, batch_size: int, lr: float, lr_scheduler: str, lr_final_decay_ratio: float, 
                                 weight_decay: float, label_smoothing: float, early_stopping: bool, early_stopping_patience: int, random_seed: int, epochs: int, train_img_transforms: str, ft_mode: str, start_point: str) -> Dict[str, Any]:
     
-    metric, ch_layers, crop_size = ft_metadata["HYPERPARAMETERS"]["metric"], ft_metadata["HYPERPARAMETERS"]["ch_layers"], ft_metadata["HYPERPARAMETERS"]["crop_size"]
-    opt, lr_scheduler = ft_metadata["HYPERPARAMETERS"]["optimizer"], ft_metadata["HYPERPARAMETERS"]["lr_scheduler"]
+    metric, ch_layers, crop_size, opt = ft_metadata["HYPERPARAMETERS"]["metric"], ft_metadata["HYPERPARAMETERS"]["ch_layers"], ft_metadata["HYPERPARAMETERS"]["crop_size"], ft_metadata["HYPERPARAMETERS"]["optimizer"]
     
     if "HYPERPARAMETERS" not in retrain_metadata:
         retrain_metadata["HYPERPARAMETERS"] = {"xai_algorithm": xai_algorithm, "xai_entry": xai_entry, "original_ts_ratio": original_ts_ratio, "new_ts_ratio": new_ts_ratio, 
