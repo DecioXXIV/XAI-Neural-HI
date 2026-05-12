@@ -119,7 +119,7 @@ if __name__ == "__main__":
         logger.info(f"PHASE 4 -> MODEL TESTING")
         
         mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
-        model, _ = load_model(EXPERIMENT_RETRAIN_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", RETRAIN_METADATA)
+        model, _ = load_model(EXPERIMENT_RETRAIN_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", DEVICE, RETRAIN_METADATA)
         test_dl = get_dataloader(os.path.join(EXPERIMENT_RETRAIN_ROOT, "test"), CLASSES, "test", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
         
         os.system(f"cp {os.path.join(EXPERIMENT_RETRAIN_ROOT, 'n_crops_per_instance.json')} {os.path.join(EXPERIMENT_RETRAIN_DIR, 'n_crops_per_instance.json')}")
