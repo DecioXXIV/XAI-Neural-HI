@@ -7,7 +7,7 @@ from sklearn.metrics import accuracy_score, f1_score
 from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 from src.utils.metadata.metadata_handler import MetadataHandler
-from src.utils.data.dataloaders import TestDataLoader
+from src.utils.fine_tuning.general_utils import get_dataloader
 from src.utils.models.model_tester import ModelTester
 
 logger = Logger()
@@ -68,8 +68,8 @@ class FaithfulnessEvaluator:
             else:
                 logger.info(f"Evaluating faithfulness for mask rate: {mr}")
                 current_test_set_dir = os.path.join(EXPERIMENTS_ROOT, self.experiment_id, "faithfulness", self.xai_algorithm, self.xai_entry, self.faith_entry, "test_sets", str(mr))
-                test_loader = TestDataLoader(current_test_set_dir, classes, batch_size, crop_size, mean_, std_, device)
-                dataset, test_dl = test_loader.load_data()
+                test_dataloader = get_dataloader(current_test_set_dir, classes, "test", batch_size, model.get_input_size(), mean_, std_, device)
+                dataset, test_dl = test_dataloader.load_data()
 
                 model_tester = ModelTester(self.experiment_ft_dir, model, test_dl, device, ft_metadata, exp_metadata)
                 cl_labels, cl_preds, cl_logits, cl_probs, crop_preds_per_page, pl_labels, pl_preds = model_tester()
