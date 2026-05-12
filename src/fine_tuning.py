@@ -54,7 +54,7 @@ if __name__ == "__main__":
             torch.manual_seed(RANDOM_SEED)
             if torch.cuda.is_available(): torch.cuda.manual_seed_all(RANDOM_SEED)
         
-        model, last_cp = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", FT_METADATA)
+        model, last_cp = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", DEVICE, FT_METADATA)
         
         train_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "train"), CLASSES, "train", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE, RANDOM_SEED, TRAIN_TRANSFORMS)
         val_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "val"), CLASSES, "val", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         logger.info(f"PHASE 3 -> MODEL TESTING")
         
         mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
-        model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", FT_METADATA)
+        model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", DEVICE, FT_METADATA)
         test_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "test"), CLASSES, "test", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
         test_model(EXPERIMENT_FT_DIR, model, test_dl, DEVICE, FT_METADATA, EXP_METADATA)
         

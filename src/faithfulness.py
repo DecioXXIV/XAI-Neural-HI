@@ -64,7 +64,7 @@ if __name__ == "__main__":
             logger.info(f"Device(s): {[torch.cuda.get_device_name(i) for i in range(n_devices)]}")
 
         MODEL_NAME = EXP_METADATA.get("MODEL_NAME")
-        model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", FT_METADATA)
+        model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", DEVICE, FT_METADATA)
         model.to(DEVICE)
         model.eval()
         

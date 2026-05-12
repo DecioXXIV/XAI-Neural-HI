@@ -16,11 +16,11 @@ class ModelLoader:
         self.phase = phase
         self.ft_metadata = ft_metadata
 
-    def __call__(self, ch_layers: List[str]) -> Tuple[ResNet18 | SwinTiny, Dict[str, Any] | None]:
+    def __call__(self, ch_layers: List[str], device: str) -> Tuple[ResNet18 | SwinTiny, Dict[str, Any] | None]:
         logger.info(f"Loading Model '{self.model_name}' in '{self.phase}' phase...")
         model, last_cp = None, None
         
-        if self.model_name == "ResNet18": model = ResNet18(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
+        if self.model_name == "ResNet18": model = ResNet18(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers, device=device)
         elif self.model_name == "SwinTiny": model = SwinTiny(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
             
         if self.phase == "train":
@@ -32,12 +32,12 @@ class ModelLoader:
                 logger.warning(f"Resuming Fine-Tuning from a previous checkpoint: {epochs_completed}/{epochs} epochs have already been completed, {epochs_remaining} remaining...\n")
                     
                 last_cp_path = os.path.join(self.base_dir, "checkpoints", "last_checkpoint.pth")
-                last_cp = torch.load(last_cp_path)
+                last_cp = torch.load(last_cp_path, map_location=device)
                 model.load_state_dict(last_cp["model_state_dict"])
             
         else:
             cp_to_test_path = os.path.join(self.base_dir, "checkpoints", "val_best_model.pth")
-            cp_to_test = torch.load(cp_to_test_path)
+            cp_to_test = torch.load(cp_to_test_path, map_location=device)
             model.load_state_dict(cp_to_test["model_state_dict"])
                 
         logger.info(f"...Model successfully loaded!")
@@ -52,11 +52,11 @@ class FineTunedToRetrainModelLoader:
         self.ft_mode = ft_mode
         self.ft_metadata = ft_metadata
 
-    def __call__(self, ch_layers: List[str]) -> Tuple[ResNet18 | SwinTiny, Dict[str, Any] | None]:
+    def __call__(self, ch_layers: List[str], device: str) -> Tuple[ResNet18 | SwinTiny, Dict[str, Any] | None]:
         logger.info(f"Loading Fine-Tuned Model '{self.model_name}'...")
         model, last_cp = None, None
         
-        if self.model_name == "ResNet18": model = ResNet18(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
+        if self.model_name == "ResNet18": model = ResNet18(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers, device=device)
         elif self.model_name == "SwinTiny": model = SwinTiny(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
         
         if "EPOCHS_COMPLETED" in self.ft_metadata["FINE_TUNING_DETAILS"]:
@@ -67,12 +67,12 @@ class FineTunedToRetrainModelLoader:
             logger.warning(f"Resuming Fine-Tuning from a previous checkpoint: {epochs_completed}/{epochs} epochs have already been completed, {epochs_remaining} remaining...\n")
                 
             last_cp_path = os.path.join(self.experiment_retrain_dir, "checkpoints", "last_checkpoint.pth")
-            last_cp = torch.load(last_cp_path)
+            last_cp = torch.load(last_cp_path, map_location=device)
             model.load_state_dict(last_cp["model_state_dict"])
         
         else:
             cp_to_load_path = os.path.join(self.experiment_ft_dir, "checkpoints", "val_best_model.pth")
-            cp_to_load = torch.load(cp_to_load_path)
+            cp_to_load = torch.load(cp_to_load_path, map_location=device)
             model.load_state_dict(cp_to_load["model_state_dict"])
             
         logger.info(f"...Fine-Tuned Model successfully loaded!")

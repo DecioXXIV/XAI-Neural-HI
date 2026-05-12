@@ -40,7 +40,7 @@ if __name__ == "__main__":
         n_devices = torch.cuda.device_count()
         logger.info(f"Device(s): {[torch.cuda.get_device_name(i) for i in range(n_devices)]}")
     
-    model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", FT_METADATA)
+    model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", DEVICE, FT_METADATA)
     model.to(DEVICE)
     model.eval()
     
@@ -100,9 +100,9 @@ if __name__ == "__main__":
             torch.manual_seed(RANDOM_SEED)
             if torch.cuda.is_available(): torch.cuda.manual_seed_all(RANDOM_SEED)
         
-        if START_POINT == "from_zero": model, last_cp = load_model(EXPERIMENT_RETRAIN_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", RETRAIN_METADATA)
+        if START_POINT == "from_zero": model, last_cp = load_model(EXPERIMENT_RETRAIN_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", DEVICE, RETRAIN_METADATA)
         else: # START_POINT == "from_ft1"
-            model, last_cp = load_ft_model(EXPERIMENT_FT_DIR, EXPERIMENT_RETRAIN_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, RETRAIN_METADATA)
+            model, last_cp = load_ft_model(EXPERIMENT_FT_DIR, EXPERIMENT_RETRAIN_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, DEVICE, RETRAIN_METADATA)
         
         train_dl = get_dataloader(os.path.join(EXPERIMENT_RETRAIN_DIR, "train"), CLASSES, "train", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE, RANDOM_SEED, TRAIN_TRANSFORMS)
         val_dl = get_dataloader(os.path.join(EXPERIMENT_RETRAIN_ROOT, "val"), CLASSES, "val", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)

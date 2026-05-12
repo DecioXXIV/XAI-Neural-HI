@@ -246,9 +246,9 @@ def retrieve_xai_guided_crops(base_dir: str, experiment_xai_dir: str, dataset: s
         coords_to_xai_crop_path = os.path.join(base_dir, "coords_to_xai_crop.json")
         with open(coords_to_xai_crop_path, 'w') as f: json.dump(coords_to_xai_crop, f, indent=4)
     
-def load_ft_model(experiment_ft_dir: str, experiment_retrain_dir: str, model_name: str, classes: List[str], ft_mode: str, ch_layers: str, ft_metadata: Dict[str, Any]) -> Tuple[nn.Module, Dict[str, Any]]:
+def load_ft_model(experiment_ft_dir: str, experiment_retrain_dir: str, model_name: str, classes: List[str], ft_mode: str, ch_layers: str, device: str, ft_metadata: Dict[str, Any]) -> Tuple[nn.Module, Dict[str, Any]]:
     model_loader = FineTunedToRetrainModelLoader(experiment_ft_dir, experiment_retrain_dir, model_name, classes, ft_mode, ft_metadata)
-    return model_loader(ch_layers.split(','))
+    return model_loader(ch_layers.split(','), device)
 
 def extract_random_crops(dst_dir: str, experiment_xai_dir: str, dataset: str, classes: List[str], crop_size: int, n_to_class_new: Dict[str, int], random_seed: int):
     instance_paths = get_dataset_instances(dataset, classes, "train")

@@ -7,9 +7,9 @@ from src.utils.models.model_tester import ModelTester
 from src.utils.fine_tuning.recap_writers import TrainingRecapWriter, TestingRecapWriter
 from src.utils.data.dataloaders import TrainDataLoader, TestDataLoader
 
-def load_model(base_dir: str, model_name: str, classes: List[str], ft_mode: str, ch_layers: str, phase: str, ft_metadata: Dict[str, Any]) -> Tuple[nn.Module, Dict[str, Any]]:
+def load_model(base_dir: str, model_name: str, classes: List[str], ft_mode: str, ch_layers: str, phase: str, device: str, ft_metadata: Dict[str, Any]) -> Tuple[nn.Module, Dict[str, Any]]:
     model_loader = ModelLoader(base_dir, model_name, classes, ft_mode, phase, ft_metadata)
-    return model_loader(ch_layers.split(','))
+    return model_loader(ch_layers.split(','), device)
 
 def train_model(base_dir: str, model: nn.Module, train_dl: TrainDataLoader, val_dl: TestDataLoader,
                 device: str, ft_metadata: Dict[str, Any], ft_metadata_path: str, last_cp: Dict[str, Any] | None) -> None:

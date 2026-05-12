@@ -18,7 +18,7 @@ def _build_fc_block(layer_type: str, in_f: int, out_f: int) -> nn.Sequential:
     else: return nn.Sequential(fc, nn.BatchNorm1d(out_f), nn.ReLU())
 
 class ResNet18FeatureEncoder(nn.Module):
-    def __init__(self, cp_path: str):
+    def __init__(self, device: str, cp_path: str):
         super().__init__()
 
         backbone = models.resnet18(weights=None)
@@ -27,7 +27,7 @@ class ResNet18FeatureEncoder(nn.Module):
         expansion_layer = _build_fc_block("last", in_f=512, out_f=1024)
         self.fc_layers.add_module("fc0", expansion_layer)
 
-        checkpoint = torch.load(cp_path)
+        checkpoint = torch.load(cp_path, map_location=device)
         state_dict = checkpoint["model_state_dict"].copy()
         state_dict.pop("alpha", None)
         self.load_state_dict(state_dict)
@@ -44,12 +44,12 @@ class ResNet18FeatureEncoder(nn.Module):
         return features
 
 class ResNet18(nn.Module):
-    def __init__(self, num_classes: int, ft_mode: str, layers: List[str]):
+    def __init__(self, num_classes: int, ft_mode: str, layers: List[str], device: str):
         super().__init__()
         
         cp_path = os.path.join(MODELS_ROOT, "cp", "Test_3_TL_val_best_model.pth")
 
-        self.feature_encoder = ResNet18FeatureEncoder(cp_path=cp_path)
+        self.feature_encoder = ResNet18FeatureEncoder(device, cp_path)
         if ft_mode == "frozen":
             for param in self.feature_encoder.parameters():
                 param.requires_grad = False
