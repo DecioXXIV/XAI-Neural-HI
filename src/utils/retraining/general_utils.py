@@ -154,7 +154,11 @@ def extract_memory_crops(base_dir: str, dst_dir: str, classes: List[str], cls_to
     
     for cls in classes: logger.info(f"Class '{cls}': {retrieved_to_cls[cls]} memory crops retrieved.")
     
-    new_to_class = {c: int(np.ceil(ft1_crops_to_cls[c] * new_ts_ratio)) - retrieved_to_cls[c] for c in classes}
+    new_to_class = {}
+    for cls in classes:
+        new_to_retrieve = int(np.ceil(ft1_crops_to_cls[cls] * (original_ts_ratio + new_ts_ratio))) - retrieved_to_cls[cls]
+        new_to_class[cls] = max(new_to_retrieve, 0)
+    
     return new_to_class
 
 def extract_xai_guided_crops(base_dir: str, dst_dir: str, classes: List[str], cls_to_crop: Dict[str, str], new_to_class: Dict[str, int]):
