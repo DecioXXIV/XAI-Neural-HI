@@ -54,7 +54,7 @@ class FTDatasetPreparator:
         filename = os.path.basename(instance_filepath)
         stem, _ = os.path.splitext(filename)
         
-        with Image.open(instance_filepath) as image:
+        with Image.open(instance_filepath).convert("RGB") as image:
             crops = crop_retriever.get_crops(image)
         
         id_pad_width = len(str(len(crops)))
