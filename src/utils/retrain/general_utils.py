@@ -1,8 +1,7 @@
-import os, torch, json, shutil
+import os, json, shutil
 import torch.nn as nn
 import numpy as np
 import pandas as pd
-from collections import defaultdict
 from PIL import Image
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Tuple, Any
@@ -14,17 +13,13 @@ from src.utils.data.dataloaders import TestDataLoader
 from src.utils.models.model_loader import FineTunedToRetrainModelLoader
 from src.utils.fine_tuning.general_utils import create_dataset
 from src.utils.faithfulness.patch_indexer import PatchIndexer
-from src.utils.retraining import CROP_SET_CONFIGS
-from src.utils.retraining.ft1_train_crops_coordinates_retriever import FT1TrainCropsCoordinatesRetriever
-from src.utils.retraining.ft1_classes_centroids_sigmas_computer import FT1ClassesCentroidsSigmasComputer
-from src.utils.retraining.crop_inference_executor import CropInferenceExecutor
-from src.utils.retraining.crop_xai_agg_scores_computer import CropXaiAggScoresComputer
-
-from src.utils.retraining_new.crop_classification_confidence_computer import CropClassificationConfidenceComputer
-from src.utils.retraining_new.crop_xai_evidence_computer import CropXaiEvidenceComputer
-from src.utils.retraining_new.crop_r2_retriever import CropR2Retriever
-from src.utils.retraining_new.crop_ink_fraction_computer import CropInkFractionComputer
-from src.utils.retraining_new.xai_guided_crop_selector import XaiGuidedCropSelector
+from src.utils.retrain.ft1_train_crops_coordinates_retriever import FT1TrainCropsCoordinatesRetriever
+from src.utils.retrain.crop_classification_confidence_computer import CropClassificationConfidenceComputer
+from src.utils.retrain.crop_xai_evidence_computer import CropXaiEvidenceComputer
+from src.utils.retrain.crop_r2_retriever import CropR2Retriever
+from src.utils.retrain.crop_ink_fraction_computer import CropInkFractionComputer
+from src.utils.retrain.openness_crop_selector import OpennessCropSelector
+from src.utils.retrain.memory_crop_selector import MemoryCropSelector
 
 logger = Logger()
 
@@ -49,27 +44,6 @@ def compute_ft2_crop_counts(base_dir: str, classes: List[str], original_ts_ratio
     
     return memory_crops, new_crops
 
-def get_cls_to_crop(base_dir: str, ft_dir: str, crop_set: str) -> Tuple[Dict[str, str], Dict[str, int]]:
-    with open(os.path.join(ft_dir, "class_to_idx.json"), 'r') as f:
-        idx_to_cls = json.load(f)
-    
-    cls_to_crop_path = os.path.join(base_dir, f"cls_to_{crop_set}_crop.json")
-    if os.path.exists(cls_to_crop_path):
-        with open(cls_to_crop_path, 'r') as f: cls_to_crop = json.load(f)
-    
-    else:
-        cls_to_crop = {}
-        for cls in idx_to_cls.keys():
-            if crop_set == "ft1_train": cls_train_crops = os.listdir(os.path.join(base_dir, "train", cls))
-            elif crop_set == "xai_guided": cls_train_crops = os.listdir(os.path.join(base_dir, "xai_crops", cls))
-            for crop in cls_train_crops:
-                if crop_set == "ft1_train": cls_to_crop[os.path.join(base_dir, "train", cls, crop)] = cls
-                elif crop_set == "xai_guided": cls_to_crop[os.path.join(base_dir, "xai_crops", cls, crop)] = cls
-        
-        with open(cls_to_crop_path, 'w') as f: json.dump(cls_to_crop, f, indent=4)
-    
-    return cls_to_crop, idx_to_cls
-
 def retrieve_ft1_train_crops_coordinates(base_dir: str, dataset: str, classes: List[str], crop_size: int):
     coords_path = os.path.join(base_dir, "coords_to_ft1_train_crop.json")
     
@@ -87,9 +61,10 @@ def compute_memory_scores(base_dir: str, experiment_xai_dir: str, model: nn.Modu
     else:
         logger.info("Computing memory scores for FT1 train crops...")
         
-        mem_scores = pd.DataFrame()
         dataset, loader = TestDataLoader(os.path.join(base_dir, "train"), classes, batch_size, crop_size, mean_, std_, device).load_data()
         paths = [s[0] for s in dataset.samples]
+        pages = [os.path.splitext(os.path.basename(p))[0].split('_')[0] for p in paths]
+        instancs_classes = [os.path.basename(os.path.dirname(p)) for p in paths]
         
         offset = 0
         cc, confidences = CropClassificationConfidenceComputer(model, device), []
@@ -106,11 +81,15 @@ def compute_memory_scores(base_dir: str, experiment_xai_dir: str, model: nn.Modu
             
             offset += n
         
-        mem_scores["crop"] = paths
-        mem_scores["confidence"] = _adjust_confidences(confidences)
-        mem_scores["green_evidence"] = green_evidences
-        mem_scores["r2"] = r2s
-        mem_scores["green_ink_fraction"] = green_ink_fractions
+        mem_scores = pd.DataFrame({
+            "crop": pd.Series(paths, dtype=str),
+            "page": pd.Series(pages, dtype=str),
+            "instance_class": pd.Series(instancs_classes, dtype=str),
+            "confidence": pd.Series(_adjust_confidences(confidences), dtype=float),
+            "green_evidence": pd.Series(green_evidences, dtype=float),
+            "r2": pd.Series(r2s, dtype=float),
+            "green_ink_fraction": pd.Series(green_ink_fractions, dtype=float)
+        })
         mem_scores["memory"] = mem_scores["confidence"] * mem_scores["green_evidence"] * mem_scores["r2"] * mem_scores["green_ink_fraction"]
         mem_scores.to_csv(mem_scores_path, index=False, header=True)
 
@@ -122,25 +101,18 @@ def _adjust_confidences(confidences: List[float]) -> List[float]:
         eps            = second_min_pos - min_pos
         return [c if c > 0.0 else eps for c in confidences]
     return confidences
-  
-def extract_memory_crops(base_dir: str, dst_dir: str, classes: List[str], cls_to_crop: Dict[str, str], n_memory_crops_to_cls: Dict[str, int]) -> Dict[str, int]:
-    with open(os.path.join(base_dir, "memory_scores.csv"), 'r') as f: mem_scores_df = pd.read_csv(f)
-    crop_to_score = mem_scores_df.set_index("crop")["memory"].to_dict()
-    
-    cls_to_crops_list: Dict[str, List[str]] = defaultdict(list)
-    for crop, cls in cls_to_crop.items(): cls_to_crops_list[cls].append(crop)
-    
+
+def extract_memory_crops(base_dir: str, dst_dir: str, classes: List[str], n_memory_crops_to_cls: Dict[str, int]) -> Dict[str, int]:
+    mem_scores_df = pd.read_csv(os.path.join(base_dir, "memory_scores.csv"), header=0)
+    selector = MemoryCropSelector(mem_scores_df)
+
     for cls in classes:
         dst_class_dir = os.path.join(dst_dir, "train", cls)
         os.makedirs(dst_class_dir, exist_ok=True)
-        
-        cls_crops = cls_to_crops_list[cls]
-        mem_scores_to_cls_crops = {crop: crop_to_score[crop] for crop in cls_crops}
-        sorted_mem_scores_to_cls_crops = {k: v for k, v in sorted(mem_scores_to_cls_crops.items(), key=lambda item: item[1], reverse=True)}
-        
-        n_to_keep = n_memory_crops_to_cls[cls]
-        selected_crops = list(sorted_mem_scores_to_cls_crops.keys())[:n_to_keep]
+
+        selected_crops = selector(cls, n_memory_crops_to_cls[cls])
         for crop in selected_crops: shutil.copyfile(crop, os.path.join(dst_class_dir, os.path.basename(crop)))
+        logger.info(f"Class '{cls}': {len(selected_crops)} memory crops extracted.")
 
 def retrieve_xai_guided_crops(base_dir: str, experiment_xai_dir: str, dataset: str, classes: List[str], crop_size: int):
     coords_to_xai_crop_path = os.path.join(base_dir, "coords_to_xai_crop.json")
@@ -210,9 +182,10 @@ def compute_openness_scores(base_dir: str, experiment_xai_dir: str, model: nn.Mo
     else:
         logger.info("Computing openness scores for XAI-guided crops...")
         
-        openness_scores = pd.DataFrame()
         dataset, loader = TestDataLoader(os.path.join(base_dir, "xai_crops"), classes, batch_size, crop_size, mean_, std_, device).load_data()
         paths = [s[0] for s in dataset.samples]
+        pages = [os.path.splitext(os.path.basename(p))[0].split('_')[0] for p in paths]
+        instancs_classes = [os.path.basename(os.path.dirname(p)) for p in paths]
         
         offset = 0
         cc, difficulties = CropClassificationConfidenceComputer(model, device), []
@@ -226,36 +199,46 @@ def compute_openness_scores(base_dir: str, experiment_xai_dir: str, model: nn.Mo
             red_ink_fractions.extend(rifc(batch_paths))
             offset += n
         
-        openness_scores["crop"] = paths
-        openness_scores["difficulty"] = difficulties
-        openness_scores["red_evidence"] = red_evidences
-        openness_scores["red_ink_fraction"] = red_ink_fractions
+        openness_scores = pd.DataFrame({
+            "crop": pd.Series(paths, dtype=str),
+            "page": pd.Series(pages, dtype=str),
+            "instance_class": pd.Series(instancs_classes, dtype=str),
+            "difficulty": pd.Series(difficulties, dtype=float),
+            "red_evidence": pd.Series(red_evidences, dtype=float),
+            "red_ink_fraction": pd.Series(red_ink_fractions, dtype=float)
+        })
         openness_scores["openness"] = openness_scores["difficulty"] * openness_scores["red_evidence"] * openness_scores["red_ink_fraction"]
         openness_scores.to_csv(opennes_scores_path, index=False, header=True)
-        
-def extract_xai_guided_crops(base_dir: str, dst_dir: str, experiment_xai_dir: str, classes: List[str], cls_to_crop: Dict[str, str], new_to_class: Dict[str, int]):
-    crop_to_openness = pd.read_csv(os.path.join(base_dir, "openness_scores.csv")).set_index("crop")["openness"].to_dict()
 
-    cls_to_crops_list: Dict[str, List[str]] = defaultdict(list)
-    for crop, cls in cls_to_crop.items(): cls_to_crops_list[cls].append(crop)
+def extract_xai_guided_crops(base_dir: str, dst_dir: str, experiment_xai_dir: str, classes: List[str], new_to_class: Dict[str, int]):
+    openness_scores_df = pd.read_csv(os.path.join(base_dir, "openness_scores.csv"), header=0)
+    selector = OpennessCropSelector(openness_scores_df, experiment_xai_dir)
 
-    selector = XaiGuidedCropSelector(experiment_xai_dir, crop_to_openness)
     for cls in classes:
         dst_class_dir = os.path.join(dst_dir, "train", cls)
         os.makedirs(dst_class_dir, exist_ok=True)
-        selected_crops = selector(cls_to_crops_list[cls], new_to_class[cls])
+
+        selected_crops = selector(cls, new_to_class[cls])
         for crop in selected_crops: shutil.copyfile(crop, os.path.join(dst_class_dir, os.path.basename(crop)))
-        logger.info(f"Class '{cls}': {len(selected_crops)} XAI-guided crops retrieved.")
-   
-def extract_random_crops(dst_dir: str, experiment_xai_dir: str, dataset: str, classes: List[str], crop_size: int, n_to_class_new: Dict[str, int], random_seed: int):
+        logger.info(f"Class '{cls}': {len(selected_crops)} XAI-guided crops extracted.")
+
+def extract_random_crops(dst_dir: str, experiment_ft_dir: str, experiment_xai_dir: str, dataset: str, classes: List[str], crop_size: int, original_ts_ratio: float, new_ts_ratio: float, random_seed: int):
     instance_paths = get_dataset_instances(dataset, classes, "train")
+    with open(os.path.join(experiment_ft_dir, "n_crops_per_instance.json"), 'r') as f: n_crops_per_instance = json.load(f)
+    
+    n_crops_for_cls = {}
+    for p in instance_paths:
+        cls = os.path.basename(os.path.dirname(p))
+        n_crops_for_cls[cls] = n_crops_for_cls.get(cls, 0) + n_crops_per_instance["train"][p]
+    
     rng = np.random.default_rng(random_seed)
+
     for cls in classes:
         dst_train_class_subdir = os.path.join(dst_dir, "train", cls)
         os.makedirs(dst_train_class_subdir, exist_ok=True)
         
         cls_instance_paths = [p for p in instance_paths if os.path.basename(os.path.dirname(p)) == cls]
-        n_to_extract = n_to_class_new[cls]
+        n_to_extract = int(np.ceil(n_crops_for_cls[cls] * (original_ts_ratio + new_ts_ratio)))
 
         sampled_paths = rng.choice(cls_instance_paths, size=n_to_extract, replace=True)
 
@@ -275,6 +258,7 @@ def extract_random_crops(dst_dir: str, experiment_xai_dir: str, dataset: str, cl
                 left, top = int(lefts[i]), int(tops[i])
                 crop = img.crop((left, top, left + crop_size, top + crop_size))
                 crop.save(os.path.join(dst_train_class_subdir, f"{page_name}_random{idx}.png"))
+        logger.info(f"Class '{cls}': {n_to_extract} random crops extracted.")
 
 def load_ft_model(experiment_ft_dir: str, experiment_retrain_dir: str, model_name: str, classes: List[str], ft_mode: str, ch_layers: str, device: str, ft_metadata: Dict[str, Any]) -> Tuple[nn.Module, Dict[str, Any]]:
     model_loader = FineTunedToRetrainModelLoader(experiment_ft_dir, experiment_retrain_dir, model_name, classes, ft_mode, ft_metadata)
