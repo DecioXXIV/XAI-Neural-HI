@@ -27,11 +27,17 @@ class CropInkFractionComputer:
 
             # Load crop as grayscale; use its actual shape to avoid off-by-one with segments
             crop_gray = np.array(Image.open(path).convert("L"))
-            crop_segments = segments[top:bottom+1, left:right+1]
+            crop_size = bottom - top + 1
+            half = crop_size // 2
+            cx, cy = left + half, top + half
+            # Pad segments with -1 (scores.get("-1", 0.0) == 0.0, neutral relevance)
+            # so that crops near image borders are handled correctly
+            segments_padded = np.pad(segments, ((half, half), (half, half)), mode="constant", constant_values=-1)
+            crop_segments = segments_padded[cy:cy + crop_size, cx:cx + crop_size]
             crop_patches = np.unique(crop_segments)
 
             # Select patches matching the requested color
-            if self.color == "green": colored_patches = [p for p in crop_patches if scores.get(str(p), 0.0) >= 0.0]
+            if self.color == "green": colored_patches = [p for p in crop_patches if scores.get(str(p), 0.0) > 0.0]
             else:  # "red"
                 colored_patches = [p for p in crop_patches if scores.get(str(p), 0.0) < 0.0]
 
@@ -39,7 +45,7 @@ class CropInkFractionComputer:
                 fractions.append(0.0)
                 continue
 
-            # Otsu binarization on the individual crop (dark pixels = ink)
+            # Otsu binarization on the individual crop (white pixels = ink)
             try:
                 threshold = threshold_otsu(crop_gray)
                 ink_mask = crop_gray < threshold

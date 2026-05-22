@@ -13,7 +13,7 @@ class OpennessCropSelector:
     """Selects XAI-guided crops in two phases.
 
     Phase 1 (base): for each page, extract ``n_needed // n_pages`` crops
-        using round-robin over connected components (CCs) of red patches.
+        using round-robin over connected components (CCs) of green patches.
     Phase 2 (remainder): fill ``n_needed % n_pages`` remaining slots by
         scanning all crops globally (openness desc), taking at most one
         extra crop per page.
@@ -114,15 +114,15 @@ class OpennessCropSelector:
 
         return selected_crops
 
-    def _build_patch_adjacency(self, segments: np.ndarray, red_int: np.ndarray) -> Dict[int, Set[int]]:
+    def _build_patch_adjacency(self, segments: np.ndarray, target_int: np.ndarray) -> Dict[int, Set[int]]:
         """
-        Builds {patch_id: set_of_adjacent_red_patch_ids} for all red patches.
+        Builds {patch_id: set_of_adjacent_target_patch_ids} for all target patches.
 
-        Two patches are adjacent if they are different, both red, and share
+        Two patches are adjacent if they are different, both target patches, and share
         at least one pair of 8-connected pixels (horizontal, vertical, diagonal).
 
         Vectorized approach: at each pixel boundary between two different patches,
-        record the (patch_a, patch_b) pair. Then keep only pairs where both are red.
+        record the (patch_a, patch_b) pair. Then keep only pairs where both are target patches.
         """
         # Horizontal boundaries: pixels (r,c) and (r,c+1) in different patches
         h_mask  = segments[:, :-1] != segments[:, 1:]
@@ -147,24 +147,24 @@ class OpennessCropSelector:
         # Merge all boundary pairs, then keep only those where both patches are red
         all_a = np.concatenate([h_left,  v_top,    d1_top,    d2_top])
         all_b = np.concatenate([h_right, v_bottom, d1_bottom, d2_bottom])
-        both_red = np.isin(all_a, red_int) & np.isin(all_b, red_int)
+        both_target = np.isin(all_a, target_int) & np.isin(all_b, target_int)
 
         adj: Dict[int, Set[int]] = defaultdict(set)
-        for a, b in zip(all_a[both_red].tolist(), all_b[both_red].tolist()):
+        for a, b in zip(all_a[both_target].tolist(), all_b[both_target].tolist()):
             adj[a].add(b)
             adj[b].add(a)
 
         return adj
 
-    def _label_connected_components(self, red_patches: Set[str], adjacency: Dict[int, Set[int]]) -> Dict[int, int]:
+    def _label_connected_components(self, target_patches: Set[str], adjacency: Dict[int, Set[int]]) -> Dict[int, int]:
         """
-        Assigns a CC id to each red patch using iterative DFS.
+        Assigns a CC id to each target patch using iterative DFS.
         Returns {patch_id: cc_id}.
         """
         patch_to_cc: Dict[int, int] = {}
         cc_id = 0
 
-        for patch_str in red_patches:
+        for patch_str in target_patches:
             patch = int(patch_str)
             if patch in patch_to_cc:
                 continue  # already assigned to a CC in a previous DFS
@@ -192,14 +192,14 @@ class OpennessCropSelector:
         with open(os.path.join(page_xai_dir, "aggregated_scores.json"), "r") as f:
             scores: Dict[str, float] = json.load(f)
 
-        red_patches = {k for k, v in scores.items() if v < 0.0}
-        if not red_patches:
+        green_patches = {k for k, v in scores.items() if v > 0.0}
+        if not green_patches:
             return {}
 
-        segments  = np.load(os.path.join(page_xai_dir, "segments.npy"))
-        red_int   = np.array([int(k) for k in red_patches], dtype=segments.dtype)
-        adjacency = self._build_patch_adjacency(segments, red_int)
-        cc_map    = self._label_connected_components(red_patches, adjacency)
+        segments    = np.load(os.path.join(page_xai_dir, "segments.npy"))
+        green_int   = np.array([int(k) for k in green_patches], dtype=segments.dtype)
+        adjacency   = self._build_patch_adjacency(segments, green_int)
+        cc_map      = self._label_connected_components(green_patches, adjacency)
 
         return {str(patch_id): cc_id for patch_id, cc_id in cc_map.items()}
 
@@ -219,5 +219,5 @@ class OpennessCropSelector:
 
         cc_id = self.page_cc_cache[page_name].get(patch_idx_str)
         if cc_id is not None: return f"{page_name}::cc{cc_id}"
-        # Patch not found among red patches: treat it as its own isolated CC
+        # Patch not found among green patches: treat it as its own isolated CC
         return f"{page_name}::solo_{patch_idx_str}"

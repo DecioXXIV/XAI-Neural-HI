@@ -55,19 +55,18 @@ if __name__ == "__main__":
 
     if SELECTION_RULE == "saliency":
         n_memory_crops_to_cls, n_new_crops_to_cls = compute_ft2_crop_counts(EXPERIMENT_RETRAIN_ROOT, CLASSES, ORIGINAL_TS_RATIO, NEW_TS_RATIO)
-        print(f"Number of crops to extract per class for FT2 training set -> Memory: {n_memory_crops_to_cls} | XAI-guided: {n_new_crops_to_cls}\n")
         # Dict[str, int]: {class_name: num_crops}
 
         retrieve_ft1_train_crops_coordinates(EXPERIMENT_RETRAIN_ROOT, DATASET, CLASSES, CROP_SIZE)
         compute_memory_scores(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_XAI_DIR, model, CLASSES, BATCH_SIZE, CROP_SIZE, mean_, std_, DEVICE)
         extract_memory_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, CLASSES, n_memory_crops_to_cls)
 
-        retrieve_xai_guided_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_XAI_DIR, DATASET, CLASSES, CROP_SIZE)
+        retrieve_xai_guided_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_XAI_DIR, DATASET, CLASSES, CROP_SIZE, mean_)
         compute_openness_scores(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_XAI_DIR, model, CLASSES, BATCH_SIZE, CROP_SIZE, mean_, std_, DEVICE)
         extract_xai_guided_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, EXPERIMENT_XAI_DIR, CLASSES, n_new_crops_to_cls)
 
     else: # SELECTION_RULE == "random"
-        extract_random_crops(EXPERIMENT_RETRAIN_DIR, EXPERIMENT_FT_DIR, EXPERIMENT_XAI_DIR, DATASET, CLASSES, CROP_SIZE, ORIGINAL_TS_RATIO, NEW_TS_RATIO, RANDOM_SEED)
+        extract_random_crops(EXPERIMENT_RETRAIN_DIR, EXPERIMENT_FT_DIR, EXPERIMENT_XAI_DIR, DATASET, CLASSES, CROP_SIZE, ORIGINAL_TS_RATIO, NEW_TS_RATIO, RANDOM_SEED, mean_)
     
     if "MODEL_FINE_TUNING" in RETRAIN_METADATA["TIMESTAMPS"]:
         logger.warning("Skipping PHASE 3 (Model Re-Training): it has already been completed!\n")

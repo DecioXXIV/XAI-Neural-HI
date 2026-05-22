@@ -114,13 +114,15 @@ def extract_memory_crops(base_dir: str, dst_dir: str, classes: List[str], n_memo
         for crop in selected_crops: shutil.copyfile(crop, os.path.join(dst_class_dir, os.path.basename(crop)))
         logger.info(f"Class '{cls}': {len(selected_crops)} memory crops extracted.")
 
-def retrieve_xai_guided_crops(base_dir: str, experiment_xai_dir: str, dataset: str, classes: List[str], crop_size: int):
+def retrieve_xai_guided_crops(base_dir: str, experiment_xai_dir: str, dataset: str, classes: List[str], crop_size: int, mean_: List[float]):
     coords_to_xai_crop_path = os.path.join(base_dir, "coords_to_xai_crop.json")
     
     if os.path.exists(coords_to_xai_crop_path):
         logger.warning(f"Skipping XAI-guided crops retrieval: it has been already done!")
     
     else:
+        max_overflow = int(0.1 * crop_size)
+        mean_int = tuple(m * 255 for m in mean_)
         
         def _retrieve_xai_guided_crops_for_instance(inst_path: str) -> Tuple[List[str], List[Tuple[int, int, int, int]]]:
             cls          = os.path.basename(os.path.dirname(inst_path))
@@ -133,13 +135,14 @@ def retrieve_xai_guided_crops(base_dir: str, experiment_xai_dir: str, dataset: s
             bboxes       = PatchIndexer()(segments)
             padded_img   = Image.open(os.path.join(page_xai_dir, f"{page_name}_forexp.png")).convert("RGB")
             img_w, img_h = padded_img.size
+            img_arr      = np.array(padded_img)
             
             out_dir = os.path.join(base_dir, "xai_crops", cls)
             
             page_crop_paths, page_crop_coords = [], []
             half = crop_size // 2
             for patch_idx_str, score in scores.items():
-                if score >= 0.0: continue
+                if score <= 0.0: continue
 
                 coords = bboxes.get(str(patch_idx_str))
                 if coords is None: continue
@@ -148,10 +151,23 @@ def retrieve_xai_guided_crops(base_dir: str, experiment_xai_dir: str, dataset: s
                 left, top = cx - half, cy - half
                 right, bottom = left + crop_size - 1, top + crop_size - 1
                 
-                if left < 0 or top < 0 or right >= img_w or bottom >= img_h: continue
+                if left < -max_overflow or top < -max_overflow or right >= img_w + max_overflow or bottom >= img_h + max_overflow: continue
+
+                pad_left_px   = max(0, -left)
+                pad_top_px    = max(0, -top)
+                pad_right_px  = max(0, right + 1 - img_w)
+                pad_bottom_px = max(0, bottom + 1 - img_h)
 
                 out_path = os.path.join(out_dir, f"{page_name}_patch{patch_idx_str}.png")
-                padded_img.crop((left, top, right + 1, bottom + 1)).save(out_path)
+
+                if pad_left_px or pad_top_px or pad_right_px or pad_bottom_px:
+                    crop_arr = np.full((crop_size, crop_size, 3), mean_int, dtype=np.uint8)
+                    crop_arr[pad_top_px : crop_size - pad_bottom_px,
+                             pad_left_px : crop_size - pad_right_px] = img_arr[top  + pad_top_px  : top  + crop_size - pad_bottom_px,
+                                                                                left + pad_left_px : left + crop_size - pad_right_px]
+                    Image.fromarray(crop_arr).save(out_path)
+                else:
+                    padded_img.crop((left, top, right + 1, bottom + 1)).save(out_path)
 
                 page_crop_paths.append(out_path)
                 page_crop_coords.append((left, top, right, bottom))
@@ -189,14 +205,14 @@ def compute_openness_scores(base_dir: str, experiment_xai_dir: str, model: nn.Mo
         
         offset = 0
         cc, difficulties = CropClassificationConfidenceComputer(model, device), []
-        ec, red_evidences = CropXaiEvidenceComputer(base_dir, experiment_xai_dir, "xai_guided", "red"), []
-        rifc, red_ink_fractions = CropInkFractionComputer(base_dir, experiment_xai_dir, "xai_guided", "red"), []
+        ec, green_evidences = CropXaiEvidenceComputer(base_dir, experiment_xai_dir, "xai_guided", "green"), []
+        gifc, green_ink_fractions = CropInkFractionComputer(base_dir, experiment_xai_dir, "xai_guided", "green"), []
         for images, labels in tqdm(loader, desc="Batch Processing", position=0, leave=True, dynamic_ncols=True):
             n = images.size(0)
             batch_paths = paths[offset:offset + n]
             difficulties.extend(cc.compute_difficulty(images, labels))
-            red_evidences.extend(ec(batch_paths))
-            red_ink_fractions.extend(rifc(batch_paths))
+            green_evidences.extend(ec(batch_paths))
+            green_ink_fractions.extend(gifc(batch_paths))
             offset += n
         
         openness_scores = pd.DataFrame({
@@ -204,10 +220,10 @@ def compute_openness_scores(base_dir: str, experiment_xai_dir: str, model: nn.Mo
             "page": pd.Series(pages, dtype=str),
             "instance_class": pd.Series(instancs_classes, dtype=str),
             "difficulty": pd.Series(difficulties, dtype=float),
-            "red_evidence": pd.Series(red_evidences, dtype=float),
-            "red_ink_fraction": pd.Series(red_ink_fractions, dtype=float)
+            "green_evidence": pd.Series(green_evidences, dtype=float),
+            "green_ink_fraction": pd.Series(green_ink_fractions, dtype=float)
         })
-        openness_scores["openness"] = openness_scores["difficulty"] * openness_scores["red_evidence"] * openness_scores["red_ink_fraction"]
+        openness_scores["openness"] = openness_scores["difficulty"] * openness_scores["green_evidence"] * openness_scores["green_ink_fraction"]
         openness_scores.to_csv(opennes_scores_path, index=False, header=True)
 
 def extract_xai_guided_crops(base_dir: str, dst_dir: str, experiment_xai_dir: str, classes: List[str], new_to_class: Dict[str, int]):
@@ -222,7 +238,7 @@ def extract_xai_guided_crops(base_dir: str, dst_dir: str, experiment_xai_dir: st
         for crop in selected_crops: shutil.copyfile(crop, os.path.join(dst_class_dir, os.path.basename(crop)))
         logger.info(f"Class '{cls}': {len(selected_crops)} XAI-guided crops extracted.")
 
-def extract_random_crops(dst_dir: str, experiment_ft_dir: str, experiment_xai_dir: str, dataset: str, classes: List[str], crop_size: int, original_ts_ratio: float, new_ts_ratio: float, random_seed: int):
+def extract_random_crops(dst_dir: str, experiment_ft_dir: str, experiment_xai_dir: str, dataset: str, classes: List[str], crop_size: int, original_ts_ratio: float, new_ts_ratio: float, random_seed: int, mean_: List[float]):
     instance_paths = get_dataset_instances(dataset, classes, "train")
     with open(os.path.join(experiment_ft_dir, "n_crops_per_instance.json"), 'r') as f: n_crops_per_instance = json.load(f)
     
@@ -232,6 +248,8 @@ def extract_random_crops(dst_dir: str, experiment_ft_dir: str, experiment_xai_di
         n_crops_for_cls[cls] = n_crops_for_cls.get(cls, 0) + n_crops_per_instance["train"][p]
     
     rng = np.random.default_rng(random_seed)
+    max_overflow = int(0.1 * crop_size)
+    mean_int = tuple(m * 255 for m in mean_)
 
     for cls in classes:
         dst_train_class_subdir = os.path.join(dst_dir, "train", cls)
@@ -251,13 +269,27 @@ def extract_random_crops(dst_dir: str, experiment_ft_dir: str, experiment_xai_di
             img = Image.open(os.path.join(experiment_xai_dir, page_name, f"{page_name}_forexp.png")).convert("RGB")
             img_w, img_h = img.size
 
-            lefts = rng.integers(0, img_w - crop_size, size=len(indices))
-            tops  = rng.integers(0, img_h - crop_size, size=len(indices))
+            lefts = rng.integers(-max_overflow, img_w - crop_size + max_overflow + 1, size=len(indices))
+            tops  = rng.integers(-max_overflow, img_h - crop_size + max_overflow + 1, size=len(indices))
+            img_arr = np.array(img)
 
             for i, idx in enumerate(indices):
                 left, top = int(lefts[i]), int(tops[i])
-                crop = img.crop((left, top, left + crop_size, top + crop_size))
-                crop.save(os.path.join(dst_train_class_subdir, f"{page_name}_random{idx}.png"))
+
+                pad_left   = max(0, -left)
+                pad_top    = max(0, -top)
+                pad_right  = max(0, left + crop_size - img_w)
+                pad_bottom = max(0, top  + crop_size - img_h)
+
+                if pad_left or pad_top or pad_right or pad_bottom:
+                    crop_arr = np.full((crop_size, crop_size, 3), mean_int, dtype=np.uint8)
+                    crop_arr[pad_top : crop_size - pad_bottom,
+                             pad_left : crop_size - pad_right] = img_arr[top  + pad_top  : top  + crop_size - pad_bottom,
+                                                                          left + pad_left : left + crop_size - pad_right]
+                else:
+                    crop_arr = img_arr[top : top + crop_size, left : left + crop_size]
+
+                Image.fromarray(crop_arr).save(os.path.join(dst_train_class_subdir, f"{page_name}_random{idx}.png"))
         logger.info(f"Class '{cls}': {n_to_extract} random crops extracted.")
 
 def load_ft_model(experiment_ft_dir: str, experiment_retrain_dir: str, model_name: str, classes: List[str], ft_mode: str, ch_layers: str, device: str, ft_metadata: Dict[str, Any]) -> Tuple[nn.Module, Dict[str, Any]]:

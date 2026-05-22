@@ -24,7 +24,11 @@ class CropXaiEvidenceComputer:
             
             page_name = crop_name.split("_")[0]
             segments, scores = self._get_page_segments_and_scores(page_name)
-            crop_segments = segments[top:bottom+1, left:right+1]
+            crop_size = bottom - top + 1
+            half = crop_size // 2
+            cx, cy = left + half, top + half
+            segments_padded = np.pad(segments, ((half, half), (half, half)), mode="constant", constant_values=-1)
+            crop_segments = segments_padded[cy:cy + crop_size, cx:cx + crop_size]
             crop_patches = np.unique(crop_segments)
             
             greeness, redness = self._compute_greeness(crop_patches, scores), self._compute_redness(crop_patches, scores)
@@ -49,10 +53,10 @@ class CropXaiEvidenceComputer:
 
     def _compute_greeness(self, crop_patches: np.ndarray, scores: Dict[str, float]) -> float:
         greeness = 0.0
-        for patch in crop_patches: greeness += max(0.0, scores[str(patch)])
+        for patch in crop_patches: greeness += max(0.0, scores.get(str(patch), 0.0))
         return greeness / len(crop_patches) if len(crop_patches) > 0 else 0.0
     
     def _compute_redness(self, crop_patches: np.ndarray, scores: Dict[str, float]) -> float:
         redness = 0.0
-        for patch in crop_patches: redness += max(0.0, -scores[str(patch)])
+        for patch in crop_patches: redness += max(0.0, -scores.get(str(patch), 0.0))
         return redness / len(crop_patches) if len(crop_patches) > 0 else 0.0    
