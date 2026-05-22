@@ -2,6 +2,7 @@ import os, json
 import numpy as np
 import pandas as pd
 import torch.nn as nn
+import multiprocessing as mp
 from typing import Dict, Any, List
 from PIL import Image
 from tqdm import tqdm
@@ -70,7 +71,7 @@ def _build_visualization_worker(args: tuple):
 def build_exp_visualizations(instances: List[str], experiment_xai_dir: str, xai_instances_metadata: Dict[str, Any]):
     args = [(instance, experiment_xai_dir, xai_instances_metadata) for instance in instances]
 
-    with ProcessPoolExecutor() as executor:
+    with ProcessPoolExecutor(mp_context=mp.get_context("spawn")) as executor:
         futures = {executor.submit(_build_visualization_worker, a): a[0] for a in args}
         for future in tqdm(as_completed(futures), total=len(instances), desc="Building Visualizations", position=0, leave=True, dynamic_ncols=True):
             future.result()
