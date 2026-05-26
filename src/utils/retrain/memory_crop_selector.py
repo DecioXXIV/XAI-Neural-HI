@@ -9,7 +9,7 @@ class MemoryCropSelector:
     def __call__(self, cls: str, n_crops: int) -> List[str]:
         self.cls_mem_scores_df = self.mem_scores_df[self.mem_scores_df["instance_class"] == cls]
         sorted_crops_to_page = {
-            page: crops.sort_values(by="memory", ascending=False)["crop"].tolist()
+            page: crops["crop"].tolist()
             for page, crops in self.cls_mem_scores_df.groupby("page")
         }
 

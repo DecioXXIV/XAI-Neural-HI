@@ -8,6 +8,12 @@ from src.models.swinsmall import SwinSmall
 
 logger = Logger()
 
+def _instantiate_model(model_name: str, classes: List[str], ft_mode: str, ch_layers: List[str], device: str) -> ResNet18 | SwinTiny | SwinSmall:
+    if model_name == "ResNet18": return ResNet18(num_classes=len(classes), ft_mode=ft_mode, layers=ch_layers, device=device)
+    elif model_name == "SwinTiny": return SwinTiny(num_classes=len(classes), ft_mode=ft_mode, layers=ch_layers)
+    elif model_name == "SwinSmall": return SwinSmall(num_classes=len(classes), ft_mode=ft_mode, layers=ch_layers)
+    raise ValueError(f"Unknown model name: '{model_name}'")
+
 class ModelLoader:
     def __init__(self, base_dir: str, model_name: str, classes: List[str], ft_mode: str, phase: str, ft_metadata: Dict[str, Any]):
         self.base_dir = base_dir
@@ -19,12 +25,9 @@ class ModelLoader:
 
     def __call__(self, ch_layers: List[str], device: str) -> Tuple[ResNet18 | SwinTiny | SwinSmall, Dict[str, Any] | None]:
         logger.info(f"Loading Model '{self.model_name}' in '{self.phase}' phase...")
-        model, last_cp = None, None
-        
-        if self.model_name == "ResNet18": model = ResNet18(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers, device=device)
-        elif self.model_name == "SwinTiny": model = SwinTiny(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
-        elif self.model_name == "SwinSmall": model = SwinSmall(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
-            
+        model = _instantiate_model(self.model_name, self.classes, self.ft_mode, ch_layers, device)
+        last_cp = None
+
         if self.phase == "train":
             if "EPOCHS_COMPLETED" in self.ft_metadata["FINE_TUNING_DETAILS"]:
                 epochs = self.ft_metadata["HYPERPARAMETERS"]["total_epochs"]
@@ -56,12 +59,9 @@ class FineTunedToRetrainModelLoader:
 
     def __call__(self, ch_layers: List[str], device: str) -> Tuple[ResNet18 | SwinTiny | SwinSmall, Dict[str, Any] | None]:
         logger.info(f"Loading Fine-Tuned Model '{self.model_name}'...")
-        model, last_cp = None, None
-        
-        if self.model_name == "ResNet18": model = ResNet18(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers, device=device)
-        elif self.model_name == "SwinTiny": model = SwinTiny(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
-        elif self.model_name == "SwinSmall": model = SwinSmall(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
-        
+        model = _instantiate_model(self.model_name, self.classes, self.ft_mode, ch_layers, device)
+        last_cp = None
+
         if "EPOCHS_COMPLETED" in self.ft_metadata["FINE_TUNING_DETAILS"]:
             epochs = self.ft_metadata["HYPERPARAMETERS"]["total_epochs"]
             epochs_completed = self.ft_metadata["FINE_TUNING_DETAILS"]["EPOCHS_COMPLETED"]

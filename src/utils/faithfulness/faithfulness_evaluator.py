@@ -19,7 +19,7 @@ class FaithfulnessEvaluator:
         self.xai_algorithm = xai_algorithm
         self.xai_entry = xai_entry
         self.faith_entry = faith_entry
-        self.mask_rates = [0.0] +mask_rates
+        self.mask_rates = [0.0] + mask_rates
         self.mask_rule = mask_rule
         
         self._initialize_faith_metadata()
@@ -32,16 +32,16 @@ class FaithfulnessEvaluator:
         self.faith_probs_report_path  = os.path.join(faith_dir, "faithfulness_probs_report.csv")
         
         try: self.faith_page_level_metadata = MetadataHandler(self.faith_page_level_metadata_path).load_metadata()
-        except: self.faith_page_level_metadata = {}
+        except Exception as e: self.faith_page_level_metadata = {}
         
         try: self.faith_crop_level_metadata = MetadataHandler(self.faith_crop_level_metadata_path).load_metadata()
-        except: self.faith_crop_level_metadata = {}
+        except Exception as e: self.faith_crop_level_metadata = {}
 
         try: self._logits_report = pd.read_csv(self.faith_logits_report_path, header=0)
-        except: self._logits_report = pd.DataFrame()
+        except Exception as e: self._logits_report = pd.DataFrame()
 
         try: self._probs_report = pd.read_csv(self.faith_probs_report_path, header=0)
-        except: self._probs_report = pd.DataFrame()
+        except Exception as e: self._probs_report = pd.DataFrame()
     
     def __call__(self, model: nn.Module, classes: List[str], mean_: List[float], std_: List[float], exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], device: str):
         logger.info(f"*** BEGINNING OF FAITHFULNESS EVALUATION -> Experiment: {self.experiment_id} | XAI Algorithm: {self.xai_algorithm} | XAI Entry: {self.xai_entry} | Faithfulness Entry: {self.faith_entry} ***")

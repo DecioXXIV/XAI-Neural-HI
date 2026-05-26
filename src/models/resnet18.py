@@ -1,13 +1,11 @@
 import torch, os
-import numpy as np
 import torch.nn as nn
-import torch.nn.functional as F
 import torchvision.models as models
 from typing import List
-from torchvision import transforms as T
 
 from src.utils.constants import MODELS_ROOT
 from src.utils.models.model_blocks import build_classification_head
+from src.models.base_classifiers import BaseClassifier
 
 def _build_fc_block(layer_type: str, in_f: int, out_f: int) -> nn.Sequential:
     fc = nn.Linear(in_f, out_f)
@@ -43,7 +41,7 @@ class ResNet18FeatureEncoder(nn.Module):
         if features.ndim > 2: features = torch.flatten(features, start_dim=1)
         return features
 
-class ResNet18(nn.Module):
+class ResNet18(BaseClassifier):
     def __init__(self, num_classes: int, ft_mode: str, layers: List[str], device: str):
         super().__init__()
         
@@ -67,28 +65,3 @@ class ResNet18(nn.Module):
         features = self.feature_encoder(x)
         logits = self.classification_head(features)
         return logits
-
-    @staticmethod
-    def build_inference_transforms(mean: List[float], std: List[float], input_size: int=380) -> T.Compose:
-        return T.Compose([
-            T.Resize((input_size, input_size)),
-            T.ToTensor(),
-            T.Normalize(mean, std)
-        ])
-
-    def batch_predict_function(self, inputs: List[np.ndarray], mean: List[float], std: List[float], device: torch.device, apply_softmax: bool=True, forward_fn=None) -> np.ndarray:
-        if not hasattr(self, '_inference_transforms'):
-            self._inference_transforms = self.build_inference_transforms(mean, std, self.get_input_size())
-        batch = torch.stack([self._inference_transforms(i) for i in inputs], dim=0).to(device)
-
-        self.eval()
-        with torch.inference_mode():
-            _fn = forward_fn if forward_fn is not None else self
-            logits = _fn(batch)
-            if apply_softmax:
-                probs = F.softmax(logits, dim=1)
-                output = probs.detach().cpu().numpy()
-            else:
-                output = logits.detach().cpu().numpy()
-
-        return output

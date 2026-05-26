@@ -4,6 +4,8 @@ from PIL import Image
 from skimage.filters import threshold_otsu
 from typing import List
 
+from src.utils.retrain.crop_utils import get_page_segments_and_scores
+
 class CropInkFractionComputer:
     def __init__(self, base_dir: str, experiment_xai_dir: str, crop_set: str, color: str):
         self.base_dir = base_dir
@@ -23,7 +25,7 @@ class CropInkFractionComputer:
             left, top, right, bottom = self.coords[path]
             page_name = os.path.basename(path).split("_")[0]
 
-            segments, scores = self._get_page_segments_and_scores(page_name)
+            segments, scores = get_page_segments_and_scores(self.page_data_cache, self.experiment_xai_dir, page_name)
 
             # Load crop as grayscale; use its actual shape to avoid off-by-one with segments
             crop_gray = np.array(Image.open(path).convert("L"))
@@ -63,13 +65,3 @@ class CropInkFractionComputer:
 
         return fractions
     
-    def _get_page_segments_and_scores(self, page_name: str):
-        if page_name in self.page_data_cache:
-            segments, scores = self.page_data_cache[page_name]["segments"], self.page_data_cache[page_name]["scores"]
-        else:
-            segments = np.load(os.path.join(self.experiment_xai_dir, page_name, "segments.npy"))
-            scores_path = os.path.join(self.experiment_xai_dir, page_name, "aggregated_scores.json")
-            with open(scores_path, "r") as f: scores = json.load(f)
-            self.page_data_cache[page_name] = {"segments": segments, "scores": scores}
-        
-        return segments, scores

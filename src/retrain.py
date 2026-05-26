@@ -1,12 +1,11 @@
-import os, torch, random
-import numpy as np
+import os, torch, shutil
 from datetime import datetime
 
 from cli.arg_parsers import get_retraining_args
 from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 from src.utils.metadata.metadata_utils import get_ft_metadata, get_experiment_metadata, get_retrain_metadata, initialize_retrain_metadata, add_timestamp_to_retrain_metadata
-from src.utils.models.model_utils import load_model, train_model, test_model
+from src.utils.models.model_utils import load_model, train_model, test_model, setup_device, set_random_seed
 from src.utils.fine_tuning.general_utils import get_train_rgb_mean_std, get_dataloader, remove_subdirectories
 from src.utils.retrain.general_utils import retrieve_original_dataset, compute_ft2_crop_counts, retrieve_ft1_train_crops_coordinates, compute_memory_scores, extract_memory_crops, retrieve_xai_guided_crops, extract_random_crops, compute_openness_scores, extract_xai_guided_crops, load_ft_model
 
@@ -34,11 +33,7 @@ if __name__ == "__main__":
     CH_LAYERS, CROP_SIZE, TRAIN_REPLICAS = FT_METADATA["HYPERPARAMETERS"]["ch_layers"], FT_METADATA["HYPERPARAMETERS"]["crop_size"], FT_METADATA["HYPERPARAMETERS"]["train_replicas"]
     mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
     
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    if DEVICE == "cuda":
-        torch.cuda.empty_cache()
-        n_devices = torch.cuda.device_count()
-        logger.info(f"Device(s): {[torch.cuda.get_device_name(i) for i in range(n_devices)]}")
+    DEVICE = setup_device()
     
     model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", DEVICE, FT_METADATA)
     model.to(DEVICE)
@@ -58,7 +53,7 @@ if __name__ == "__main__":
         # Dict[str, int]: {class_name: num_crops}
 
         retrieve_ft1_train_crops_coordinates(EXPERIMENT_RETRAIN_ROOT, DATASET, CLASSES, CROP_SIZE)
-        compute_memory_scores(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_XAI_DIR, model, CLASSES, BATCH_SIZE, CROP_SIZE, mean_, std_, DEVICE)
+        compute_memory_scores(EXPERIMENT_RETRAIN_ROOT, XAI_ALGORITHM,EXPERIMENT_XAI_DIR, model, CLASSES, BATCH_SIZE, CROP_SIZE, mean_, std_, DEVICE)
         extract_memory_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, CLASSES, n_memory_crops_to_cls)
 
         retrieve_xai_guided_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_XAI_DIR, DATASET, CLASSES, CROP_SIZE, mean_)
@@ -72,11 +67,7 @@ if __name__ == "__main__":
         logger.warning("Skipping PHASE 3 (Model Re-Training): it has already been completed!\n")
     else:
         logger.info(f"PHASE 3 -> MODEL RE-TRAINING")
-        if RANDOM_SEED is not None:
-            random.seed(RANDOM_SEED)
-            np.random.seed(RANDOM_SEED)
-            torch.manual_seed(RANDOM_SEED)
-            if torch.cuda.is_available(): torch.cuda.manual_seed_all(RANDOM_SEED)
+        set_random_seed(RANDOM_SEED)
         
         if START_POINT == "from_zero": model, last_cp = load_model(EXPERIMENT_RETRAIN_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", DEVICE, RETRAIN_METADATA)
         else: # START_POINT == "from_ft1"
@@ -100,7 +91,8 @@ if __name__ == "__main__":
         model, _ = load_model(EXPERIMENT_RETRAIN_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", DEVICE, RETRAIN_METADATA)
         test_dl = get_dataloader(os.path.join(EXPERIMENT_RETRAIN_ROOT, "test"), CLASSES, "test", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
         
-        os.system(f"cp {os.path.join(EXPERIMENT_RETRAIN_ROOT, 'n_crops_per_instance.json')} {os.path.join(EXPERIMENT_RETRAIN_DIR, 'n_crops_per_instance.json')}")
+        # os.system(f"cp {os.path.join(EXPERIMENT_RETRAIN_ROOT, 'n_crops_per_instance.json')} {os.path.join(EXPERIMENT_RETRAIN_DIR, 'n_crops_per_instance.json')}")
+        shutil.copyfile(os.path.join(EXPERIMENT_RETRAIN_ROOT, "n_crops_per_instance.json"), os.path.join(EXPERIMENT_RETRAIN_DIR, "n_crops_per_instance.json"))
         test_model(EXPERIMENT_RETRAIN_DIR, model, test_dl, DEVICE, RETRAIN_METADATA, EXP_METADATA)
         
         logger.info("Model testing completed successfully!\n")

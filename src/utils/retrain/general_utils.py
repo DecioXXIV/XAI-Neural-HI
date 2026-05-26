@@ -53,7 +53,7 @@ def retrieve_ft1_train_crops_coordinates(base_dir: str, dataset: str, classes: L
         coordinates_to_ft1_train_crop = FT1TrainCropsCoordinatesRetriever(base_dir, dataset, classes, crop_size)()
         with open(coords_path, 'w') as f: json.dump(coordinates_to_ft1_train_crop, f, indent=4)
 
-def compute_memory_scores(base_dir: str, experiment_xai_dir: str, model: nn.Module, classes: List[str], batch_size: int, crop_size: int, mean_: List[float], std_: List[float], device: str):
+def compute_memory_scores(base_dir: str, xai_algorithm: str, experiment_xai_dir: str, model: nn.Module, classes: List[str], batch_size: int, crop_size: int, mean_: List[float], std_: List[float], device: str):
     mem_scores_path = os.path.join(base_dir, "memory_scores.csv")
     
     if os.path.exists(mem_scores_path): logger.warning(f"Skipping memory scores computation: it has been already done!")
@@ -69,7 +69,7 @@ def compute_memory_scores(base_dir: str, experiment_xai_dir: str, model: nn.Modu
         offset = 0
         cc, confidences = CropClassificationConfidenceComputer(model, device), []
         ec, green_evidences = CropXaiEvidenceComputer(base_dir, experiment_xai_dir, "ft1", "green"), []
-        r2c, r2s = CropR2Retriever(experiment_xai_dir), []
+        r2c, r2s = CropR2Retriever(experiment_xai_dir, xai_algorithm), []
         ifc, green_ink_fractions = CropInkFractionComputer(base_dir, experiment_xai_dir, "ft1", "green"), []
         for images, labels in tqdm(loader, desc="Batch Processing", position=0, leave=True, dynamic_ncols=True):
             n = images.size(0)

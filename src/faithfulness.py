@@ -4,7 +4,7 @@ from cli.arg_parsers import get_faithfulness_args, validate_faithfulness_args
 from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 from src.utils.metadata.metadata_utils import get_experiment_metadata, get_ft_metadata, get_xai_metadata, initialize_faithfulness_metadata, add_end_timestamp_to_faithfulness_metadata
-from src.utils.models.model_utils import load_model
+from src.utils.models.model_utils import load_model, setup_device
 from src.utils.fine_tuning.general_utils import get_train_rgb_mean_std
 from src.utils.faithfulness.explained_instances_retriever import ExplainedTestInstancesRetriever
 from src.utils.faithfulness.general_utils import get_masker, compute_mask_rates, create_test_sets, remove_test_sets
@@ -47,7 +47,6 @@ if __name__ == "__main__":
         
         instance_paths, instance_names = ExplainedTestInstancesRetriever(EXPERIMENT_ID, DATASET, CLASSES, XAI_ALGORITHM, XAI_ENTRY, XAI_INSTANCES_METADATA)()
         mask_rates = compute_mask_rates(MASK_CEIL, MASK_STEP)
-        mean_, _ = get_train_rgb_mean_std(os.path.join(EXPERIMENTS_ROOT, EXPERIMENT_ID, "fine_tuning"), DATASET, CLASSES)
         masking_color = torch.tensor(mean_).view(3, 1, 1)
         
         masker = get_masker(EXPERIMENT_ID, XAI_ALGORITHM, XAI_ENTRY, SEG_TYPE, MASK_RULE, mask_rates, PATCHES_COLOR, masking_color)
@@ -57,11 +56,7 @@ if __name__ == "__main__":
         CROP_SIZE = FT_METADATA["HYPERPARAMETERS"]["crop_size"]
         create_test_sets(EXPERIMENT_ID, XAI_ALGORITHM, XAI_ENTRY, FAITH_ENTRY, mask_rates, XAI_INSTANCES_METADATA, DATASET, CLASSES, CROP_SIZE)
         
-        DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-        if DEVICE == "cuda":
-            torch.cuda.empty_cache()
-            n_devices = torch.cuda.device_count()
-            logger.info(f"Device(s): {[torch.cuda.get_device_name(i) for i in range(n_devices)]}")
+        DEVICE = setup_device()
 
         MODEL_NAME = EXP_METADATA.get("MODEL_NAME")
         model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", DEVICE, FT_METADATA)

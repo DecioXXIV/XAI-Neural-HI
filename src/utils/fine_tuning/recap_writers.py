@@ -18,7 +18,16 @@ class TrainingRecapWriter:
         self.base_dir = base_dir
         self.history_dir = os.path.join(base_dir, "history")
     
-    def _create_metric_recaps(self):
+    def _load_history(self) -> dict:
+        history = {}
+        for metric_serie in METRIC_SERIES:
+            history[metric_serie] = {}
+            for phase in ("train", "val"):
+                with open(os.path.join(self.history_dir, f"{phase}_{metric_serie}.pkl"), "rb") as f:
+                    history[metric_serie][phase] = pkl.load(f)
+        return history
+
+    def _create_metric_recaps(self, history: dict):
         metric_recap_dict = {}
         metric_recap_dict["training_infos"] = {}
         metric_recap_dict["training_infos"]["train_set"] = {}
@@ -30,11 +39,8 @@ class TrainingRecapWriter:
             elif metric_serie == "macrof1s": metric = "macro_f1"
             elif metric_serie == "weightedf1s": metric = "weighted_f1"
             
-            values = {"train": [], "val": []}
-            for phase in values.keys():
-                with open(os.path.join(self.history_dir, f"{phase}_{metric_serie}.pkl"), "rb") as f:
-                    values[phase] = pkl.load(f)
-            
+            values = history[metric_serie]
+
             best_train_metric, best_val_metric = None, None
             if metric_serie == "losses":
                 best_train_metric = np.min(values["train"])
@@ -60,18 +66,15 @@ class TrainingRecapWriter:
         with open(os.path.join(self.history_dir, "training_recap.json"), "w") as f:
             json.dump(metric_recap_dict, f, indent=4)
     
-    def _plot_metric_recaps(self):
+    def _plot_metric_recaps(self, history: dict):
         for metric_serie in METRIC_SERIES:
             if metric_serie == "losses": metric = "loss"
             elif metric_serie == "accs": metric = "accuracy"
             elif metric_serie == "macrof1s": metric = "macro_f1"
             elif metric_serie == "weightedf1s": metric = "weighted_f1"
             
-            values = {"train": [], "val": []}
-            for phase in values.keys():
-                with open(os.path.join(self.history_dir, f"{phase}_{metric_serie}.pkl"), "rb") as f:
-                    values[phase] = pkl.load(f)
-            
+            values = history[metric_serie]
+
             plt.plot(values['train'])
             plt.plot(values['val'])
             plt.title(f"Model {metric}")
@@ -92,8 +95,9 @@ class TrainingRecapWriter:
         plt.close()
     
     def __call__(self):
-        self._create_metric_recaps()
-        self._plot_metric_recaps()
+        history = self._load_history()
+        self._create_metric_recaps(history)
+        self._plot_metric_recaps(history)
         self._plot_learning_rates()
 
 class TestingRecapWriter:

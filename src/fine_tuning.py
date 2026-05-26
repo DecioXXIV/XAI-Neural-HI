@@ -1,5 +1,4 @@
-import os, torch, random
-import numpy as np
+import os, torch
 
 from datetime import datetime
 
@@ -8,7 +7,7 @@ from src.utils.constants import METADATA_ROOT, EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 from src.utils.metadata.metadata_utils import get_experiment_metadata, get_ft_metadata, initialize_ft_metadata, add_timestamp_to_ft_metadata
 from src.utils.fine_tuning.general_utils import create_dataset, get_train_rgb_mean_std, get_dataloader, remove_subdirectories
-from src.utils.models.model_utils import load_model, train_model, test_model
+from src.utils.models.model_utils import load_model, train_model, test_model, setup_device, set_random_seed
 
 logger = Logger()
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
@@ -28,11 +27,7 @@ if __name__ == "__main__":
     os.makedirs(EXPERIMENT_FT_DIR, exist_ok=True)
     
     MODEL_NAME, DATASET, CLASSES = EXP_METADATA.get("MODEL_NAME"), EXP_METADATA.get("DATASET"), EXP_METADATA.get("CLASSES")
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    if DEVICE == "cuda":
-        torch.cuda.empty_cache()
-        n_devices = torch.cuda.device_count()
-        logger.info(f"Device(s): {[torch.cuda.get_device_name(i) for i in range(n_devices)]}")
+    DEVICE = setup_device()
     
     logger.info(f"*** Experiment: {EXPERIMENT_ID} -> START OF FINE TUNING-PROCESS ***\n")
     
@@ -48,11 +43,7 @@ if __name__ == "__main__":
         logger.warning("Skipping PHASE 2 (Model Fine-Tuning): it has already been completed!\n")
     else:
         logger.info(f"PHASE 2 -> MODEL FINE-TUNING")
-        if RANDOM_SEED is not None:
-            random.seed(RANDOM_SEED)
-            np.random.seed(RANDOM_SEED)
-            torch.manual_seed(RANDOM_SEED)
-            if torch.cuda.is_available(): torch.cuda.manual_seed_all(RANDOM_SEED)
+        set_random_seed(RANDOM_SEED)
         
         model, last_cp = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", DEVICE, FT_METADATA)
         

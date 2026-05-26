@@ -2,16 +2,16 @@ import os, json
 from typing import List
 
 class CropR2Retriever:
-    def __init__(self, experiment_xai_dir: str):
+    def __init__(self, experiment_xai_dir: str, xai_algorithm: str):
         self.experiment_xai_dir = experiment_xai_dir
-        self.xai_algorithm = self.experiment_xai_dir.split('/')[-2]
+        self.xai_algorithm = xai_algorithm
         self.page_data_cache = {}
     
     def __call__(self, paths: List[str]) -> List[float]:
         if self.xai_algorithm == "Occlusion":
             return [1.0] * len(paths)  # R² is always 1 for Occlusion (perfect fit)
         
-        elif self.xai_algorithm == "GLimeBinomial":
+        elif self.xai_algorithm in ("GLimeBinomial", "Lime"):
             r2s = []
         
             for path in paths:

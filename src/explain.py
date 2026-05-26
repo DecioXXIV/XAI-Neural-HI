@@ -6,7 +6,7 @@ from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 from src.utils.metadata.metadata_utils import get_experiment_metadata, get_ft_metadata, get_xai_instances_metadata, get_xai_metadata, initialize_xai_metadata, add_end_timestamp_to_xai_metadata
 from src.utils.fine_tuning.general_utils import get_train_rgb_mean_std
-from src.utils.models.model_utils import load_model
+from src.utils.models.model_utils import load_model, setup_device
 from src.utils.explain.general_utils import setup_explainer, execute_pages_preprocessing, explain_instances, build_exp_visualizations
 from src.utils.explain.instance_to_explain_retriever import InstanceToExplainRetriever
 
@@ -36,11 +36,7 @@ if __name__ == "__main__":
     EXPERIMENT_XAI_DIR = os.path.join(EXPERIMENTS_ROOT, EXPERIMENT_ID, "xai", XAI_ALGORITHM, XAI_ENTRY)
     os.makedirs(EXPERIMENT_XAI_DIR, exist_ok=True)
     
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    if DEVICE == "cuda":
-        torch.cuda.empty_cache()
-        n_devices = torch.cuda.device_count()
-        logger.info(f"Device(s): {[torch.cuda.get_device_name(i) for i in range(n_devices)]}")
+    DEVICE = setup_device()
 
     model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", DEVICE, FT_METADATA)
     model.to(DEVICE)

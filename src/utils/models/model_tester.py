@@ -26,26 +26,28 @@ class ModelTester:
             json.dump(self.c_to_idx, f)
 
     def _predict(self) -> Tuple[List[int], List[int], List[List[float]], List[List[float]]]:
-        labels, preds, logits, probs = [], [], [], []
+        labels, preds_t, logits_t, probs_t = [], [], [], []
         pbar = tqdm(self.test_dl, desc="Testing (Crop-Level)", dynamic_ncols=True)
 
         with torch.inference_mode():
             for data, target in pbar:
                 if data.dim() == 4:
-                    labels.extend(target.numpy().tolist())
+                    labels.extend(target.tolist())
                     output = self.model(data.to(self.device))
-                    preds.extend(output.argmax(dim=1).cpu().numpy().tolist())
-                    logits.extend(output.cpu().numpy().tolist())
-                    probs.extend(torch.softmax(output, dim=1).cpu().numpy().tolist())
+                    preds_t.append(output.argmax(dim=1).cpu())
+                    logits_t.append(output.cpu())
+                    probs_t.append(torch.softmax(output, dim=1).cpu())
                 elif data.dim() == 5:
                     bs, ncrops, c, h, w = data.size()
-                    for i in range(bs):
-                        labels.extend([target[i].item()] * ncrops)
+                    labels.extend(target.repeat_interleave(ncrops).tolist())
                     output = self.model(data.to(self.device).view(-1, c, h, w))
-                    preds.extend(output.argmax(dim=1).cpu().numpy().tolist())
-                    logits.extend(output.cpu().numpy().tolist())
-                    probs.extend(torch.softmax(output, dim=1).cpu().numpy().tolist())
+                    preds_t.append(output.argmax(dim=1).cpu())
+                    logits_t.append(output.cpu())
+                    probs_t.append(torch.softmax(output, dim=1).cpu())
 
+        preds = torch.cat(preds_t).numpy().tolist()
+        logits = torch.cat(logits_t).numpy().tolist()
+        probs = torch.cat(probs_t).numpy().tolist()
         return labels, preds, logits, probs
     
     def _infer_page_level_predictions(self, crop_labels: List[int], crop_preds: List[int]) -> Tuple[List[int], List[int], Dict[str, List[int]]]:
