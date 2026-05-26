@@ -1,4 +1,4 @@
-CLASSIFIERS = ["ResNet18", "SwinTiny"]
+CLASSIFIERS = ["ResNet18", "SwinTiny", "SwinSmall"]
 METRICS = ["loss", "accuracy", "macrof1", "weightedf1"]
 OPTIMIZERS = ["SGD", "Adam", "AdamW"]
 LR_SCHEDULERS = ["CosineAnnealingLR"]

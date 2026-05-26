@@ -4,6 +4,7 @@ from typing import List, Tuple, Dict, Any
 from src.utils.logger import Logger
 from src.models.resnet18 import ResNet18
 from src.models.swintiny import SwinTiny
+from src.models.swinsmall import SwinSmall
 
 logger = Logger()
 
@@ -16,12 +17,13 @@ class ModelLoader:
         self.phase = phase
         self.ft_metadata = ft_metadata
 
-    def __call__(self, ch_layers: List[str], device: str) -> Tuple[ResNet18 | SwinTiny, Dict[str, Any] | None]:
+    def __call__(self, ch_layers: List[str], device: str) -> Tuple[ResNet18 | SwinTiny | SwinSmall, Dict[str, Any] | None]:
         logger.info(f"Loading Model '{self.model_name}' in '{self.phase}' phase...")
         model, last_cp = None, None
         
         if self.model_name == "ResNet18": model = ResNet18(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers, device=device)
         elif self.model_name == "SwinTiny": model = SwinTiny(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
+        elif self.model_name == "SwinSmall": model = SwinSmall(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
             
         if self.phase == "train":
             if "EPOCHS_COMPLETED" in self.ft_metadata["FINE_TUNING_DETAILS"]:
@@ -52,12 +54,13 @@ class FineTunedToRetrainModelLoader:
         self.ft_mode = ft_mode
         self.ft_metadata = ft_metadata
 
-    def __call__(self, ch_layers: List[str], device: str) -> Tuple[ResNet18 | SwinTiny, Dict[str, Any] | None]:
+    def __call__(self, ch_layers: List[str], device: str) -> Tuple[ResNet18 | SwinTiny | SwinSmall, Dict[str, Any] | None]:
         logger.info(f"Loading Fine-Tuned Model '{self.model_name}'...")
         model, last_cp = None, None
         
         if self.model_name == "ResNet18": model = ResNet18(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers, device=device)
         elif self.model_name == "SwinTiny": model = SwinTiny(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
+        elif self.model_name == "SwinSmall": model = SwinSmall(num_classes=len(self.classes), ft_mode=self.ft_mode, layers=ch_layers)
         
         if "EPOCHS_COMPLETED" in self.ft_metadata["FINE_TUNING_DETAILS"]:
             epochs = self.ft_metadata["HYPERPARAMETERS"]["total_epochs"]
