@@ -99,10 +99,8 @@ def add_end_timestamp_to_faithfulness_metadata(experiment_id: str, faith_metadat
     faith_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "faithfulness-metadata.json")
     MetadataHandler(faith_metadata_path).save_metadata(faith_metadata)
 
-def get_retrain_metadata(experiment_id: str, original_ts_ratio: float, new_ts_ratio: float, selection_rule: str, random_seed: int) -> Dict[str, Any]:
-    retrain_metadata_dir = os.path.join(METADATA_ROOT, experiment_id, "retraining")
-    os.makedirs(retrain_metadata_dir, exist_ok=True)
-    retrain_metadata_path = os.path.join(retrain_metadata_dir, f"{selection_rule}-original{original_ts_ratio}-new{new_ts_ratio}-random_seed{random_seed}-retrain-metadata.json")
+def get_retrain_metadata(experiment_id: str, ft_mode: str, start_point: str, original_ts_ratio: float, new_ts_ratio: float, selection_rule: str, random_seed: int) -> Dict[str, Any]:
+    retrain_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "retraining", f"{ft_mode}-{start_point}", selection_rule, f"original{original_ts_ratio}-new{new_ts_ratio}", f"random_seed{random_seed}", "retrain-metadata.json")
     return MetadataHandler(retrain_metadata_path).load_metadata()
 
 def add_timestamp_to_retrain_metadata(retrain_metadata: Dict[str, Any], retrain_metadata_path: str, key: str, timestamp: Any):
