@@ -5,7 +5,7 @@ import torchvision.transforms.v2 as v2
 from typing import List
 
 from src.utils.fine_tuning.crop_retriever import CropRetriever
-from src.utils.explain.segments_handlers import SquarePatchesSegmentsHandler
+from src.utils.explain.square_patches_segments_handler import SquarePatchesSegmentsHandler
 
 class XaiImagePreprocessor:
     def __init__(self, crop_size: int, mean_: List[float]):
