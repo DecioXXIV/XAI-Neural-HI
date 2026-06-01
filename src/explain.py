@@ -17,12 +17,12 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 if __name__ == "__main__":
-    EXPERIMENT_ID, XAI_ALGORITHM, XAI_DETAILS, SUBSAMPLE, SAVE_SAMPLES, SEG_TYPE, PATCH_DIM, NUM_SAMPLES, KERNEL_WIDTH = get_explain_args()
+    EXPERIMENT_ID, XAI_ALGORITHM, XAI_DETAILS, SUBSAMPLE, SAVE_SAMPLES, SEG_TYPE, PATCH_DIM, AGGRESSIVENESS, GRANULARITY, GROUPING_METHOD, NUM_SAMPLES, KERNEL_WIDTH = get_explain_args()
     
     EXP_METADATA = get_experiment_metadata(EXPERIMENT_ID)
     FT_METADATA = get_ft_metadata(EXPERIMENT_ID)
     XAI_METADATA = get_xai_metadata(EXPERIMENT_ID)
-    XAI_METADATA, XAI_ENTRY = initialize_xai_metadata(EXPERIMENT_ID, XAI_METADATA, XAI_ALGORITHM, XAI_DETAILS, SUBSAMPLE, SAVE_SAMPLES, SEG_TYPE, PATCH_DIM, NUM_SAMPLES, KERNEL_WIDTH)
+    XAI_METADATA, XAI_ENTRY = initialize_xai_metadata(EXPERIMENT_ID, XAI_METADATA, XAI_ALGORITHM, XAI_DETAILS, SEG_TYPE, PATCH_DIM, AGGRESSIVENESS, GRANULARITY, GROUPING_METHOD, NUM_SAMPLES, KERNEL_WIDTH)
     
     EXPERIMENT_FT_DIR = os.path.join(EXPERIMENTS_ROOT, EXPERIMENT_ID, "fine_tuning")
     DATASET, MODEL_NAME, CLASSES = EXP_METADATA.get("DATASET"), EXP_METADATA.get("MODEL_NAME"), EXP_METADATA.get("CLASSES")
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     XAI_INSTANCES_METADATA = get_xai_instances_metadata(EXPERIMENT_XAI_DIR)
     explainer = setup_explainer(XAI_ALGORITHM, XAI_ENTRY, model, mean_, std_, FT_METADATA, XAI_METADATA, DEVICE)
     instance_paths, labels = InstanceToExplainRetriever(EXPERIMENT_ID, MODEL_NAME, DATASET, CLASSES, SUBSAMPLE)()
-    execute_pages_preprocessing(instance_paths, CROP_SIZE, mean_, SEG_TYPE, PATCH_DIM, EXPERIMENT_XAI_DIR, XAI_INSTANCES_METADATA)
+    execute_pages_preprocessing(instance_paths, CROP_SIZE, mean_, XAI_ALGORITHM, XAI_ENTRY, XAI_METADATA, EXPERIMENT_XAI_DIR, XAI_INSTANCES_METADATA)
     
     instances = [os.path.basename(path) for path in instance_paths]
     

@@ -26,8 +26,8 @@ def setup_explainer(xai_algorithm: str, xai_entry: str, model: nn.Module, mean_:
     elif xai_algorithm == "GLimeBinomial": return GLimeBinomialExplainer(xai_entry, model, mean_, std_, ft_metadata, xai_metadata, device)
     elif xai_algorithm == "Occlusion": return OcclusionExplainer(xai_entry, model, mean_, std_, ft_metadata, xai_metadata, device)
 
-def execute_pages_preprocessing(instance_paths: List[str], crop_size: int, mean_: List[float], seg_type: str, patch_dim: int | None, experiment_xai_dir: str, xai_instances_metadata: Dict[str, Any]):
-    img_preprocessor = XaiImagePreprocessor(crop_size, mean_)
+def execute_pages_preprocessing(instance_paths: List[str], crop_size: int, mean_: List[float], xai_algorithm: str, xai_entry: str, xai_metadata: Dict[str, Any], experiment_xai_dir: str, xai_instances_metadata: Dict[str, Any]):
+    img_preprocessor = XaiImagePreprocessor(xai_algorithm, xai_entry, xai_metadata, crop_size, mean_)
 
     def process_instance(instance_path: str):
         page_name = os.path.basename(instance_path).split(".")[0]
@@ -35,7 +35,7 @@ def execute_pages_preprocessing(instance_paths: List[str], crop_size: int, mean_
             page_xai_dir = os.path.join(experiment_xai_dir, page_name)
             os.makedirs(page_xai_dir, exist_ok=True)
             img = Image.open(instance_path).convert("RGB")
-            img_preprocessor.execute_preprocessing(img, page_name, seg_type, patch_dim, page_xai_dir)
+            img_preprocessor.execute_preprocessing(img, page_name, page_xai_dir)
 
     with ThreadPoolExecutor() as executor:
         futures = {executor.submit(process_instance, path): path for path in instance_paths}

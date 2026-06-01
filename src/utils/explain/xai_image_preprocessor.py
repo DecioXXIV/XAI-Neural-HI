@@ -2,18 +2,20 @@ import os, PIL
 import numpy as np
 import pandas as pd
 import torchvision.transforms.v2 as v2
-from typing import List
+from typing import Dict, Any, List
 
 from src.utils.fine_tuning.crop_retriever import CropRetriever
 from src.utils.explain.square_patches_segments_handler import SquarePatchesSegmentsHandler
+from src.utils.explain.ink_based_segments_handler import InkBasedSegmentsHandler
 
 class XaiImagePreprocessor:
-    def __init__(self, crop_size: int, mean_: List[float]):
+    def __init__(self, xai_algorithm: str, xai_entry: str, xai_metadata: Dict[str, Any], crop_size: int, mean_: List[float]):
         self.crop_size = crop_size
         self.mean_ = mean_
         self.crop_retriever = CropRetriever(crop_size)
+        self.seg_params = xai_metadata[xai_algorithm][xai_entry]["HYPERPARAMETERS"]
     
-    def execute_preprocessing(self, img: PIL.Image.Image, page_name: str, seg_type: str, patch_dim: int | None, page_xai_dir: str):
+    def execute_preprocessing(self, img: PIL.Image.Image, page_name: str, page_xai_dir: str):
         crop_coordinates_df = self.get_crop_coordinates_df(img, page_xai_dir)
         crop_coordinates_df.to_csv(os.path.join(page_xai_dir, "crop_coordinates.csv"), index=False, header=True)
         
@@ -26,8 +28,10 @@ class XaiImagePreprocessor:
         padded_img = self.produce_padded_page(img, crop_coordinates_df)
         padded_img.save(os.path.join(page_xai_dir, f"{page_name}_forexp.png"))
         
+        seg_type = self.seg_params["seg_type"]
         segments = None
-        if seg_type == "sq_patches": segments = SquarePatchesSegmentsHandler(patch_dim)(padded_img, page_xai_dir)
+        if seg_type == "sq_patches": segments = SquarePatchesSegmentsHandler(self.seg_params["patch_dim"])(padded_img, page_xai_dir)
+        elif seg_type == "ink_based": segments = InkBasedSegmentsHandler(self.seg_params["aggressiveness"], self.seg_params["granularity"], self.seg_params.get("grouping_method", ""))(padded_img, page_xai_dir)
         np.save(os.path.join(page_xai_dir, "segments.npy"), segments)
     
     def get_crop_coordinates_df(self, img: PIL.Image.Image, page_xai_dir: str) -> pd.DataFrame:

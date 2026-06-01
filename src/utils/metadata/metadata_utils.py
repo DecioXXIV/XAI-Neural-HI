@@ -49,19 +49,28 @@ def get_xai_metadata(experiment_id: str) -> Dict[str, Any]:
     xai_metadata_path = os.path.join(METADATA_ROOT, experiment_id, "xai-metadata.json")
     return MetadataHandler(xai_metadata_path).load_metadata()
 
-def initialize_xai_metadata(experiment_id: str, xai_metadata: Dict[str, Any], xai_algorithm: str, xai_details: str, subsample: int, save_samples: bool, seg_type: str, patch_dim: int, num_samples: int, kernel_width: float) -> Tuple[Dict[str, Any], str]:
+def initialize_xai_metadata(experiment_id: str, xai_metadata: Dict[str, Any], xai_algorithm: str, xai_details: str, seg_type: str, patch_dim: int, aggressiveness: float, granularity: str, grouping_method: str, num_samples: int, kernel_width: float) -> Tuple[Dict[str, Any], str]:
     if xai_algorithm not in xai_metadata: xai_metadata[xai_algorithm] = {}
     
     xai_entry = ""
-    if seg_type == "sq_patches":
-        xai_entry = f"sq_patches{patch_dim}x{patch_dim}" 
-        if xai_algorithm in ("Lime", "GLimeBinomial"):
-            xai_entry += f"-kw{kernel_width}-ns{num_samples}"
+    if seg_type == "sq_patches": xai_entry = f"sq_patches{patch_dim}x{patch_dim}"
+    elif seg_type == "ink_based": 
+        xai_entry = f"ink_based-agg{aggressiveness}-{granularity}"
+        if granularity in ("word", "custom"): xai_entry += f"-{grouping_method}"
+        
+    
+    if xai_algorithm in ("Lime", "GLimeBinomial"): xai_entry += f"-kw{kernel_width}-ns{num_samples}"
     xai_entry += f"-{xai_details}"
     
     if xai_entry not in xai_metadata[xai_algorithm]:
         hp_dict = {"seg_type": seg_type}
         if seg_type == "sq_patches": hp_dict["patch_dim"] = patch_dim
+        elif seg_type == "ink_based":
+            hp_dict["aggressiveness"] = aggressiveness
+            hp_dict["granularity"] = granularity
+            if granularity in ("word", "custom"):
+                hp_dict["grouping_method"] = grouping_method
+        
         if xai_algorithm in ("Lime", "GLimeBinomial"): 
             hp_dict["kernel_width"] = kernel_width
             hp_dict["num_samples"] = num_samples

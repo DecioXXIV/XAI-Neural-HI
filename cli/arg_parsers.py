@@ -3,7 +3,7 @@ import numpy as np
 from argparse import ArgumentParser, ArgumentTypeError
 from typing import List, Tuple
 
-from src import CLASSIFIERS, METRICS, OPTIMIZERS, LR_SCHEDULERS, FT_MODES, TRAIN_AUG_TRANSFORMS, EXPLAINERS, SEGMENTATIONS
+from src import CLASSIFIERS, METRICS, OPTIMIZERS, LR_SCHEDULERS, FT_MODES, TRAIN_AUG_TRANSFORMS, EXPLAINERS, SEGMENTATIONS, INK_SEG_GRANULARITIES, INK_SEG_GROUPING_METHODS
 from data import DATASETS, SCRIBES_TO_DATASET
 from src.utils.logger import Logger
 
@@ -119,6 +119,9 @@ def get_explain_args():
     parser.add_argument("-save_samples", type=str2bool, default=False)
     parser.add_argument("-seg_type", type=str, required=True, choices=SEGMENTATIONS)
     parser.add_argument("-patch_dim", type=int, default=None)
+    parser.add_argument("-aggressiveness", type=float, default=1.0)
+    parser.add_argument("-granularity", type=str, default="char", choices=INK_SEG_GRANULARITIES)
+    parser.add_argument("-grouping_method", type=str, default="auto", choices=INK_SEG_GROUPING_METHODS)
     parser.add_argument("-num_samples", type=int, default=1024)
     parser.add_argument("-kernel_width", type=float, default=None)
     return _validate_explain_args(parser.parse_args())
@@ -126,7 +129,7 @@ def get_explain_args():
 def _validate_explain_args(args):
     experiment_id = args.experiment_id
     xai_algorithm, xai_details, subsample, save_samples = args.xai_algorithm, args.xai_details, args.subsample, args.save_samples
-    seg_type, patch_dim, num_samples, kernel_width = args.seg_type, args.patch_dim, args.num_samples, args.kernel_width
+    seg_type, patch_dim, aggressiveness, granularity, grouping_method, num_samples, kernel_width = args.seg_type, args.patch_dim, args.aggressiveness, args.granularity, args.grouping_method, args.num_samples, args.kernel_width
     
     error_trigger = False
     
@@ -137,6 +140,7 @@ def _validate_explain_args(args):
         if kernel_width is not None and kernel_width <= 0:
             logger.critical("kernel_width must be a positive float for the selected XAI algorithm.")
             error_trigger = True
+    
     if seg_type == "sq_patches":
         if patch_dim is None:
             logger.critical("patch_dim must be specified when seg_type is 'sq_patches'.")
@@ -144,10 +148,14 @@ def _validate_explain_args(args):
         elif patch_dim <= 0:
             logger.critical("patch_dim must be a positive integer.")
             error_trigger = True
+    elif seg_type == "ink_based":
+        if aggressiveness <= 0:
+            logger.critical("aggressiveness must be a positive float for 'ink_based' segmentation.")
+            error_trigger = True
 
     if error_trigger: sys.exit()
 
-    return experiment_id, xai_algorithm, xai_details, subsample, save_samples, seg_type, patch_dim, num_samples, kernel_width
+    return experiment_id, xai_algorithm, xai_details, subsample, save_samples, seg_type, patch_dim, aggressiveness, granularity, grouping_method, num_samples, kernel_width
 
 ### ############ ###
 ### FAITHFULNESS ###
