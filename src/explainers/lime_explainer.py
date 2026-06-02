@@ -12,6 +12,7 @@ class LimeExplainer(BaseLimeExplainer):
         
         self.kernel_width = self.xai_metadata["Lime"][self.xai_entry]["HYPERPARAMETERS"]["kernel_width"]
         self.num_samples = self.xai_metadata["Lime"][self.xai_entry]["HYPERPARAMETERS"]["num_samples"]
+        self.seg_type = self.xai_metadata["Lime"][self.xai_entry]["HYPERPARAMETERS"]["seg_type"]
         
         self.kernel_fn = partial(self._kernel, kernel_width=self.kernel_width)
     
@@ -20,6 +21,7 @@ class LimeExplainer(BaseLimeExplainer):
         
         bin_vectors = np.random.randint(0, 2, self.num_samples*n_features).reshape(self.num_samples, n_features)
         bin_vectors[0, :] = 1
+        if self.seg_type == "ink_based": bin_vectors[:, 0] = 1 # The superpixel with id=0 is the background superpixel, so it is always active
         
         return bin_vectors
     

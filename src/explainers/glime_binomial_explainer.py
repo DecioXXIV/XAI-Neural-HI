@@ -12,6 +12,7 @@ class GLimeBinomialExplainer(BaseLimeExplainer):
         
         self.kernel_width = self.xai_metadata["GLimeBinomial"][self.xai_entry]["HYPERPARAMETERS"]["kernel_width"]
         self.num_samples = self.xai_metadata["GLimeBinomial"][self.xai_entry]["HYPERPARAMETERS"]["num_samples"]
+        self.seg_type = self.xai_metadata["GLimeBinomial"][self.xai_entry]["HYPERPARAMETERS"]["seg_type"]
         
         self.kernel_fn = partial(self._kernel, kernel_width=self.kernel_width)
     
@@ -28,6 +29,7 @@ class GLimeBinomialExplainer(BaseLimeExplainer):
             
             active_spxs = np.random.choice(range(0, n_features), size=sample_length[i], replace=False) # Indices of active superpixels
             sample[active_spxs] = 1
+            if self.seg_type == "ink_based": sample[0] = 1 # The superpixel with id=0 is the background superpixel
             
             bin_vectors.append(sample)
         

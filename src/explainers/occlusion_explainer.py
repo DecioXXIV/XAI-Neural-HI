@@ -9,6 +9,8 @@ from src.explainers.base_explainers import BaseExplainer
 class OcclusionExplainer(BaseExplainer):
     def __init__(self, xai_entry: str, model: nn.Module, mean_: List[float], std_: List[float], ft_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], device: str):
         super().__init__(xai_entry, model, mean_, std_, ft_metadata, xai_metadata, device)
+        
+        self.seg_type = self.xai_metadata["Occlusion"][self.xai_entry]["HYPERPARAMETERS"]["seg_type"]
     
     def generate_perturbed_binary_vectors(self, crop_segments: np.ndarray, sp_names: np.ndarray) -> np.ndarray:
         n_features = sp_names.shape[0]
@@ -16,6 +18,7 @@ class OcclusionExplainer(BaseExplainer):
         bin_vectors = []
         bin_vectors.append(np.ones(n_features))
         for i in range(0, n_features):
+            if self.seg_type == "ink_based" and i == 0: continue # The superpixel with id=0 is the background superpixel, so it is never occluded
             occluded_sample = np.ones(n_features)
             occluded_sample[i] = 0
             bin_vectors.append(occluded_sample)
