@@ -18,9 +18,9 @@ class OcclusionExplainer(BaseExplainer):
         bin_vectors = []
         bin_vectors.append(np.ones(n_features))
         for i in range(0, n_features):
-            if self.seg_type == "ink_based" and i == 0: continue # The superpixel with id=0 is the background superpixel, so it is never occluded
             occluded_sample = np.ones(n_features)
             occluded_sample[i] = 0
+            if self.seg_type == "ink_based" and i == 0: occluded_sample[0] = 1 # The background superpixel is never occluded, even when the superpixel with id=0 is occluded
             bin_vectors.append(occluded_sample)
         
         return np.array(bin_vectors)
