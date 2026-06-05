@@ -22,7 +22,9 @@ class BaseExplainer(ABC):
         
         self.batch_size = ft_metadata["HYPERPARAMETERS"]["batch_size"]
         self.crop_size = ft_metadata["HYPERPARAMETERS"]["crop_size"]
-        self._dp_model = nn.DataParallel(model) if torch.cuda.device_count() > 1 else None
+        
+        if self.device == "cuda" and torch.cuda.device_count() > 1: self._dp_model = nn.DataParallel(model)
+        else: self._dp_model = None
     
     def explain_page(self, page: PIL.Image.Image, label: int, segments: np.ndarray, crop_coordinates_df: pd.DataFrame, page_xai_dir: str):
         crops = self._retrieve_crops(page, crop_coordinates_df, page_xai_dir)

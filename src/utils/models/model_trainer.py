@@ -154,7 +154,7 @@ class ModelTrainer:
 
     def __call__(self, ft_metadata_path: str):
         self.model.to(self.device)
-        if torch.cuda.device_count() > 1:
+        if self.device == "cuda" and torch.cuda.device_count() > 1:
             logger.info(f"Using {torch.cuda.device_count()} GPUs with DataParallel.")
             self.model = nn.DataParallel(self.model)
         criterion = nn.CrossEntropyLoss(label_smoothing=self.ft_metadata["HYPERPARAMETERS"]["label_smoothing"])

@@ -71,7 +71,7 @@ class ModelTester:
     def __call__(self) -> Tuple[List[int], List[int], List[List[float]], List[List[float]], Dict[str, List[int]], List[int], List[int]]:
         self.model.eval()
         self.model.to(self.device)
-        if torch.cuda.device_count() > 1:
+        if self.device == "cuda" and torch.cuda.device_count() > 1:
             logger.info(f"Using {torch.cuda.device_count()} GPUs with DataParallel.")
             self.model = nn.DataParallel(self.model)
         crop_labels, crop_preds, crop_logits, crop_probs = self._predict()

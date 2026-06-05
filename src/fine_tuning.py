@@ -52,7 +52,7 @@ if __name__ == "__main__":
         train_model(EXPERIMENT_FT_DIR, model, train_dl, val_dl, DEVICE, FT_METADATA, FT_METADATA_PATH, last_cp)
 
         add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_FINE_TUNING", str(datetime.now()))
-        torch.cuda.empty_cache()
+        if DEVICE == "cuda": torch.cuda.empty_cache()
         
         logger.info("Model fine-tuning completed successfully!\n")
 
@@ -68,7 +68,7 @@ if __name__ == "__main__":
         test_model(EXPERIMENT_FT_DIR, model, test_dl, DEVICE, FT_METADATA, EXP_METADATA)
         
         add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_TESTING", str(datetime.now()))
-        torch.cuda.empty_cache()
+        if DEVICE == "cuda": torch.cuda.empty_cache()
         logger.info("Model testing completed successfully!\n")
 
     if not KEEP_CROPS: remove_subdirectories(EXPERIMENT_FT_DIR, DATASET, CLASSES)

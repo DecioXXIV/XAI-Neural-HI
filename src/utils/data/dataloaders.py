@@ -68,7 +68,7 @@ class DeterministicAugmentedDataset(ImageFolder):
             if transform_idx in self.RANDOM_TRANSFORM_INDICES:
                 seed = int(str(random_seed) + str(epoch) + str(batch_idx) + str(pos_in_batch) + str(transform_idx))
                 random.seed(seed)
-                torch.manual_seed(seed)
+                torch.default_generator.manual_seed(seed) # torch.manual_seed(seed)
             img = transform(img)
 
         return img, label
@@ -88,8 +88,9 @@ class BaseDataLoader(ABC):
         
         self.num_workers = 4
         self.pin_memory = self.device == "cuda"
-        self.persistent_workers = self.num_workers > 0
+        self.persistent_workers = False # self.persistent_workers = self.num_workers > 0
         self.prefetch_factor = 2
+        self.multiprocessing_context = "spawn" if self.device == "cuda" and self.num_workers > 0 else None
     
     def generate_dataset(self) -> ImageFolder:
         dataset = ImageFolder(root=self.directory, transform=self.compose_transform())
@@ -112,8 +113,8 @@ class TestDataLoader(BaseDataLoader):
     
     def load_data(self) -> Tuple[ImageFolder, DataLoader]:
         dataset = self.generate_dataset()
-        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, 
-                            pin_memory=self.pin_memory, persistent_workers=self.persistent_workers, prefetch_factor=self.prefetch_factor)
+        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, pin_memory=self.pin_memory, 
+                            persistent_workers=self.persistent_workers, prefetch_factor=self.prefetch_factor, multiprocessing_context=self.multiprocessing_context)
         
         return dataset, loader
     
@@ -187,9 +188,9 @@ class TrainDataLoader(BaseDataLoader):
         self._sampler = PrecomputedOrderSampler(indices)
         
         self._loader = DataLoader(
-            self._dataset, batch_size=self.batch_size, sampler=self._sampler,
-            num_workers=self.num_workers, pin_memory=self.pin_memory,
-            persistent_workers=self.persistent_workers, prefetch_factor=self.prefetch_factor
+            self._dataset, batch_size=self.batch_size, sampler=self._sampler, num_workers=self.num_workers, 
+            pin_memory=self.pin_memory, persistent_workers=self.persistent_workers, 
+            prefetch_factor=self.prefetch_factor, multiprocessing_context=self.multiprocessing_context
         )
         
         return self._dataset, self._loader
