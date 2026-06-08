@@ -31,7 +31,11 @@ class XaiImagePreprocessor:
         seg_type = self.seg_params["seg_type"]
         segments = None
         if seg_type == "sq_patches": segments = SquarePatchesSegmentsHandler(self.seg_params["patch_dim"])(padded_img, page_xai_dir)
-        elif seg_type == "ink_based": segments = InkBasedSegmentsHandler(self.seg_params["aggressiveness"], self.seg_params["granularity"], self.seg_params.get("grouping_method", ""))(padded_img, page_xai_dir)
+        elif seg_type == "ink_based":
+            sh = InkBasedSegmentsHandler(self.seg_params["aggressiveness"], self.seg_params["granularity"], self.seg_params.get("grouping_method", ""))
+            segments = sh(padded_img, page_xai_dir)
+            segments_overlay = sh.create_segments_overlay(segments, page_name)
+            segments_overlay.save(os.path.join(page_xai_dir, f"{page_name}_segments_overlay.png"))
         np.save(os.path.join(page_xai_dir, "segments.npy"), segments)
     
     def get_crop_coordinates_df(self, img: PIL.Image.Image, page_xai_dir: str) -> pd.DataFrame:

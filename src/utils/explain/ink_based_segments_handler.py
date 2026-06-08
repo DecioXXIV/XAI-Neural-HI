@@ -1,6 +1,7 @@
 import PIL, cv2, math
 import numpy as np
 from typing import Dict, List, Tuple
+from PIL import Image
 
 from src.utils.explain.segments_handler import SegmentsHandler
 
@@ -454,6 +455,26 @@ class InkBasedSegmentsHandler(SegmentsHandler):
         # Step 4: group/split strokes into the desired segment granularity.
         labels = self._build_wise_labels(cleaned_foreground_mask, raw_labels, raw_count, raw_stats, scale_info)
         return labels.astype(np.int32)
+    
+    def create_segments_overlay(self, segments: np.ndarray, page_name: str) -> PIL.Image.Image:
+        """
+        Build an RGB visualization of the ink-based segment labels.
+
+        Label 0 is rendered as black. Positive integer labels are mapped to
+        deterministic high-contrast colours so repeated runs are comparable.
+        """
+        if segments.ndim != 2: raise ValueError(f"Segments map for '{page_name}' must be a 2-D array.")
+
+        segment_ids = segments.astype(np.int64, copy=False)
+        positive_mask = segment_ids > 0
+
+        hsv_overlay = np.zeros((*segment_ids.shape, 3), dtype=np.uint8)
+        hsv_overlay[..., 0] = ((segment_ids * 37) % 180).astype(np.uint8)
+        hsv_overlay[..., 1] = np.where(positive_mask, 180 + ((segment_ids * 29) % 76), 0).astype(np.uint8)
+        hsv_overlay[..., 2] = np.where(positive_mask, 220 + ((segment_ids * 17) % 36), 0).astype(np.uint8)
+
+        rgb_overlay = cv2.cvtColor(hsv_overlay, cv2.COLOR_HSV2RGB)
+        return Image.fromarray(rgb_overlay)
         
     def _estimate_foreground_binary(self, image_bgr: np.ndarray) -> np.ndarray:
         """
