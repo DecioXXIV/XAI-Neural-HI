@@ -1,4 +1,7 @@
-import os, torch
+import os
+os.environ.setdefault("PYTORCH_NVML_BASED_CUDA_CHECK", "1")
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+import torch
 from datetime import datetime
 
 from cli.arg_parsers import get_explain_args
@@ -6,12 +9,11 @@ from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 from src.utils.metadata.metadata_utils import get_experiment_metadata, get_ft_metadata, get_xai_instances_metadata, get_xai_metadata, initialize_xai_metadata, add_end_timestamp_to_xai_metadata
 from src.utils.fine_tuning.general_utils import get_train_rgb_mean_std
-from src.utils.models.model_utils import load_model, setup_device
+from src.utils.models.model_utils import cleanup_memory, load_model, setup_device
 from src.utils.explain.general_utils import setup_explainer, execute_pages_preprocessing, explain_instances, build_exp_visualizations
 from src.utils.explain.instance_to_explain_retriever import InstanceToExplainRetriever
 
 logger = Logger()
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 torch.use_deterministic_algorithms(True)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
@@ -54,6 +56,8 @@ if __name__ == "__main__":
     build_exp_visualizations(instances, EXPERIMENT_XAI_DIR, XAI_INSTANCES_METADATA)
     
     add_end_timestamp_to_xai_metadata(EXPERIMENT_ID, XAI_METADATA, XAI_ALGORITHM, XAI_ENTRY, str(datetime.now()))
+    del explainer, model
+    cleanup_memory(DEVICE)
     
     logger.info(f"All the requested Instances have been explained!")
     logger.info(f"*** Experiment: {EXPERIMENT_ID} -> END OF EXPLAINABILITY PROCESS ***\n")

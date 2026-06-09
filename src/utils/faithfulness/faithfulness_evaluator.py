@@ -9,6 +9,7 @@ from src.utils.logger import Logger
 from src.utils.metadata.metadata_handler import MetadataHandler
 from src.utils.fine_tuning.general_utils import get_dataloader
 from src.utils.models.model_tester import ModelTester
+from src.utils.models.model_utils import cleanup_memory
 
 logger = Logger()
 
@@ -101,6 +102,8 @@ class FaithfulnessEvaluator:
 
                 MetadataHandler(self.faith_crop_level_metadata_path).save_metadata(self.faith_crop_level_metadata)
                 MetadataHandler(self.faith_page_level_metadata_path).save_metadata(self.faith_page_level_metadata)
+                del dataset, test_dl, test_dataloader, model_tester
+                cleanup_memory(device)
 
         full_report  = pd.concat(report_frames, ignore_index=True) if report_frames else pd.DataFrame()
         full_probs   = pd.concat(probs_frames,  ignore_index=True) if probs_frames  else pd.DataFrame()

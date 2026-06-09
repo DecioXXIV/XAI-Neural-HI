@@ -1,4 +1,7 @@
-import os, torch
+import os
+os.environ.setdefault("PYTORCH_NVML_BASED_CUDA_CHECK", "1")
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+import torch
 
 from datetime import datetime
 
@@ -7,10 +10,9 @@ from src.utils.constants import METADATA_ROOT, EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 from src.utils.metadata.metadata_utils import get_experiment_metadata, get_ft_metadata, initialize_ft_metadata, add_timestamp_to_ft_metadata
 from src.utils.fine_tuning.general_utils import create_dataset, get_train_rgb_mean_std, get_dataloader, remove_subdirectories
-from src.utils.models.model_utils import load_model, train_model, test_model, setup_device, set_random_seed
+from src.utils.models.model_utils import cleanup_memory, load_model, train_model, test_model, setup_device, set_random_seed
 
 logger = Logger()
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 torch.use_deterministic_algorithms(True)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
@@ -52,7 +54,8 @@ if __name__ == "__main__":
         train_model(EXPERIMENT_FT_DIR, model, train_dl, val_dl, DEVICE, FT_METADATA, FT_METADATA_PATH, last_cp)
 
         add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_FINE_TUNING", str(datetime.now()))
-        if DEVICE == "cuda": torch.cuda.empty_cache()
+        del model, last_cp, train_dl, val_dl
+        cleanup_memory(DEVICE)
         
         logger.info("Model fine-tuning completed successfully!\n")
 
@@ -68,7 +71,8 @@ if __name__ == "__main__":
         test_model(EXPERIMENT_FT_DIR, model, test_dl, DEVICE, FT_METADATA, EXP_METADATA)
         
         add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_TESTING", str(datetime.now()))
-        if DEVICE == "cuda": torch.cuda.empty_cache()
+        del model, test_dl
+        cleanup_memory(DEVICE)
         logger.info("Model testing completed successfully!\n")
 
     if not KEEP_CROPS: remove_subdirectories(EXPERIMENT_FT_DIR, DATASET, CLASSES)

@@ -86,10 +86,10 @@ class BaseDataLoader(ABC):
         self.std = std_
         self.device = device
         
-        self.num_workers = 4
+        self.num_workers = 8
         self.pin_memory = self.device == "cuda"
-        self.persistent_workers = False # self.persistent_workers = self.num_workers > 0
-        self.prefetch_factor = 2
+        self.persistent_workers = False
+        self.prefetch_factor = 4
         self.multiprocessing_context = "spawn" if self.device == "cuda" and self.num_workers > 0 else None
     
     def generate_dataset(self) -> ImageFolder:
@@ -135,6 +135,7 @@ class TrainDataLoader(BaseDataLoader):
                  model_input_size: int, mean_: List[float], std_: List[float],
                  device: str, random_seed: int, train_transforms: str, epoch: int = 1):
         super().__init__(directory, classes, batch_size, model_input_size, mean_, std_, device)
+        self.persistent_workers = self.num_workers > 0
         self.random_seed = random_seed
         self.train_transforms = train_transforms
         self.epoch = epoch

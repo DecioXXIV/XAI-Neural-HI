@@ -1,18 +1,20 @@
-import os, json, torch
+import os, json
+os.environ.setdefault("PYTORCH_NVML_BASED_CUDA_CHECK", "1")
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+import torch
 import numpy as np
 from datetime import datetime
 from cli.arg_parsers import get_faithfulness_args, validate_faithfulness_args
 from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 from src.utils.metadata.metadata_utils import get_experiment_metadata, get_ft_metadata, get_xai_metadata, initialize_faithfulness_metadata, add_end_timestamp_to_faithfulness_metadata
-from src.utils.models.model_utils import load_model, setup_device
+from src.utils.models.model_utils import cleanup_memory, load_model, setup_device
 from src.utils.fine_tuning.general_utils import get_train_rgb_mean_std
 from src.utils.faithfulness.explained_instances_retriever import ExplainedTestInstancesRetriever
 from src.utils.faithfulness.general_utils import get_masker, compute_mask_rates, create_test_sets, remove_test_sets
 from src.utils.faithfulness.faithfulness_evaluator import FaithfulnessEvaluator
 
 logger = Logger()
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 torch.use_deterministic_algorithms(True)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
@@ -73,6 +75,8 @@ if __name__ == "__main__":
         add_end_timestamp_to_faithfulness_metadata(EXPERIMENT_ID, FAITH_METADATA, XAI_ALGORITHM, XAI_ENTRY, FAITH_ENTRY, str(datetime.now()))
 
         logger.info(f"Faithfulness evaluation with configuration '{FAITH_ENTRY}' has been completed for '{EXPERIMENT_ID}' with '{XAI_ALGORITHM}' and '{XAI_ENTRY}'!\n")
+        del faith_evaluator, model
+        cleanup_memory(DEVICE)
 
         if not KEEP_TEST_SETS: remove_test_sets(EXPERIMENT_ID, XAI_ALGORITHM, XAI_ENTRY, FAITH_ENTRY)
 

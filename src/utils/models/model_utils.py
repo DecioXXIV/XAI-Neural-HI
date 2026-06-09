@@ -1,4 +1,4 @@
-import torch, random
+import gc, torch, random
 import numpy as np
 import torch.nn as nn
 from typing import List, Tuple, Dict, Any
@@ -39,6 +39,12 @@ def setup_device() -> str:
         n_devices = torch.cuda.device_count()
         logger.info(f"Device(s): {[torch.cuda.get_device_name(i) for i in range(n_devices)]}")
     return device
+
+def cleanup_memory(device: str) -> None:
+    gc.collect()
+    if device.startswith("cuda"):
+        torch.cuda.synchronize()
+        torch.cuda.empty_cache()
 
 def set_random_seed(seed: int | None) -> None:
     if seed is not None:
