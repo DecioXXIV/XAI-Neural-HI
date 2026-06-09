@@ -1,8 +1,4 @@
-import os
-os.environ.setdefault("PYTORCH_NVML_BASED_CUDA_CHECK", "1")
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-import torch
-
+import os, torch
 from datetime import datetime
 
 from cli.arg_parsers import get_ft_args
@@ -13,6 +9,7 @@ from src.utils.fine_tuning.general_utils import create_dataset, get_train_rgb_me
 from src.utils.models.model_utils import cleanup_memory, load_model, train_model, test_model, setup_device, set_random_seed
 
 logger = Logger()
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 torch.use_deterministic_algorithms(True)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False

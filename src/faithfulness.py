@@ -1,7 +1,4 @@
-import os, json
-os.environ.setdefault("PYTORCH_NVML_BASED_CUDA_CHECK", "1")
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-import torch
+import os, json, torch
 import numpy as np
 from datetime import datetime
 from cli.arg_parsers import get_faithfulness_args, validate_faithfulness_args
@@ -15,6 +12,7 @@ from src.utils.faithfulness.general_utils import get_masker, compute_mask_rates,
 from src.utils.faithfulness.faithfulness_evaluator import FaithfulnessEvaluator
 
 logger = Logger()
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 torch.use_deterministic_algorithms(True)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False

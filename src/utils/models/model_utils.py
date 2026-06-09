@@ -33,12 +33,22 @@ def test_model(base_dir: str, model: nn.Module, test_dl: TestDataLoader, device:
     testing_recap_writer(crop_labels, crop_preds, crop_logits, crop_probs, crop_preds_per_page, page_labels, page_preds)
 
 def setup_device() -> str:
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    if device == "cuda":
-        torch.cuda.empty_cache()
+    if not torch.cuda.is_available():
+        logger.warning("CUDA runtime not available. Using CPU.")
+        return "cpu"
+
+    try:
+        torch.cuda.init()
+        probe = torch.empty(1, device="cuda")
+        del probe
+
         n_devices = torch.cuda.device_count()
         logger.info(f"Device(s): {[torch.cuda.get_device_name(i) for i in range(n_devices)]}")
-    return device
+        return "cuda"
+
+    except RuntimeError as e:
+        logger.warning(f"CUDA was reported available but failed to initialize: {e}. Using CPU.")
+        return "cpu"
 
 def cleanup_memory(device: str) -> None:
     gc.collect()
