@@ -9,6 +9,7 @@ from src.utils.logger import Logger
 from src.utils.fine_tuning.crop_retriever import CropRetriever
 from src.maskers.image_masker import ImageMasker
 from src.maskers.sq_patches_image_maskers import SqPatchesSaliencyImageMasker, SqPatchesRandomImageMasker
+from src.maskers.ink_based_image_maskers import InkBasedSaliencyImageMasker, InkBasedRandomImageMasker
 
 logger = Logger()
 
@@ -22,18 +23,22 @@ def compute_mask_rates(mask_ceil, mask_step) -> List[float]:
     
     return mask_rates
 
-def get_masker(experiment_id: str, xai_algorithm: str, xai_entry: str, seg_type: str, mask_rule: str, mask_rates: List[float], patches_color: str, masking_color: torch.Tensor) -> ImageMasker:
+def get_masker(experiment_id: str, xai_algorithm: str, xai_entry: str, seg_type: str, mask_rule: str, mask_rates: List[float], patches_color: str, masking_color: torch.Tensor, global_seed: int | None) -> ImageMasker:
     maskers = {
         "sq_patches" : {
             "saliency": SqPatchesSaliencyImageMasker,
             "random":   SqPatchesRandomImageMasker,
+        },
+        "ink_based": {
+            "saliency": InkBasedSaliencyImageMasker,
+            "random":   InkBasedRandomImageMasker,
         },
     }
     
     if seg_type not in maskers: raise ValueError(f"Unknown seg_type '{seg_type}'. Expected one of: {list(maskers.keys())}")
     if mask_rule not in maskers[seg_type]: raise ValueError(f"Unknown mask_rule '{mask_rule}'. Expected one of: {list(maskers[seg_type].keys())}")
     
-    return maskers[seg_type][mask_rule](experiment_id, xai_algorithm, xai_entry, mask_rates, patches_color, masking_color)
+    return maskers[seg_type][mask_rule](experiment_id, xai_algorithm, xai_entry, mask_rates, patches_color, masking_color, global_seed)
 
 def create_test_sets(experiment_id: str, xai_algorithm: str, xai_entry: str, faith_entry: str, mask_rates: List[float], xai_instances_metadata: Dict[str, Any], dataset: str, classes: List[str], crop_size: int):
     instance_names = list(xai_instances_metadata["INSTANCES"].keys())

@@ -171,6 +171,7 @@ def get_faithfulness_args():
     parser.add_argument("-patches_color", type=str, required=True, choices=["green", "red"])
     parser.add_argument("-keep_masked_pages", type=str2bool, default=False)
     parser.add_argument("-keep_test_sets", type=str2bool, default=False)
+    parser.add_argument("-random_seed", type=int, default=None)
     return parser.parse_args()
 
 def validate_faithfulness_args(experiment_id, xai_algorithm, mask_ceil, mask_step, xai_entry, xai_metadata):
