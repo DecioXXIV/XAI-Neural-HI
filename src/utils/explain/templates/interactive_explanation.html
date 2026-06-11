@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="xai-interactive-version" content="__XAI_INTERACTIVE_VERSION__">
+  <title>XAI interactive explanation - __XAI_PAGE_TITLE__</title>
+  <link rel="stylesheet" href="./__XAI_CSS_FILE__">
+</head>
+<body>
+  <div id="panel">
+    <div id="panelTitle"></div>
+    <div class="metric"><span>Segment</span><strong id="segmentId">-</strong></div>
+    <div class="metric"><span>Relevance</span><strong id="segmentScore">-</strong></div>
+    <div class="metric"><span>Sign</span><strong id="segmentSign">-</strong></div>
+    <div class="metric"><span>Rank</span><strong id="segmentRank">-</strong></div>
+    <div class="controls">
+      <label class="control">
+        <span class="controlLabel">Threshold</span>
+        <input id="thresholdSlider" type="range" min="0" max="1" step="0.05" value="0">
+        <span id="thresholdValue">0.00</span>
+      </label>
+      <label class="control">
+        <span class="controlLabel">Dim</span>
+        <input id="dimSlider" type="range" min="0.08" max="0.55" step="0.01" value="0.24">
+        <span id="dimValue">0.24</span>
+      </label>
+    </div>
+  </div>
+  <div id="tooltip"></div>
+  <div id="error"></div>
+  <div id="stage">
+    <canvas id="pageCanvas"></canvas>
+  </div>
+
+  <script src="./__XAI_DATA_FILE__"></script>
+  <script src="./__XAI_JS_FILE__"></script>
+</body>
+</html>

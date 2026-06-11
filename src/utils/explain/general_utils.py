@@ -59,17 +59,31 @@ def explain_instances(explainer: BaseExplainer, instances: List[str], labels: Li
         else: logger.warning(f"Skipping '{instance_name}': already explained!")
 
 def _build_visualization_worker(args: tuple):
-    instance, experiment_xai_dir, xai_instances_metadata = args
+    instance, experiment_xai_dir, xai_instances_metadata, seg_type = args
     instance_name = os.path.basename(instance).split(".")[0]
     page_xai_dir = os.path.join(experiment_xai_dir, instance_name)
+    visualization_paths = [
+        os.path.join(page_xai_dir, f"{instance_name}_visual_exp.png"),
+        os.path.join(page_xai_dir, f"{instance_name}_interactive.html"),
+        os.path.join(page_xai_dir, f"{instance_name}_interactive.css"),
+        os.path.join(page_xai_dir, f"{instance_name}_interactive_data.js"),
+        os.path.join(page_xai_dir, f"{instance_name}_interactive.js"),
+        os.path.join(page_xai_dir, f"{instance_name}_segment_id_map.png"),
+        os.path.join(page_xai_dir, f"{instance_name}_interactive_scores.json")
+    ]
+    interactive_html_path = os.path.join(page_xai_dir, f"{instance_name}_interactive.html")
+    needs_visualization = (
+        any(not os.path.exists(path) for path in visualization_paths) or
+        not XaiVisualExplanationBuilder.interactive_visualization_is_current(interactive_html_path)
+    )
 
-    if instance_name in xai_instances_metadata["INSTANCES"] and not os.path.exists(os.path.join(page_xai_dir, f"{instance_name}_visual_exp.png")):
+    if instance_name in xai_instances_metadata["INSTANCES"] and needs_visualization:
         segments = np.load(os.path.join(page_xai_dir, "segments.npy"))
         with open(os.path.join(page_xai_dir, "aggregated_scores.json"), "r") as f: scores = json.load(f)
-        XaiVisualExplanationBuilder().build_visual_explanation(instance_name, page_xai_dir, segments, scores)
+        XaiVisualExplanationBuilder().build_visual_explanation(instance_name, page_xai_dir, segments, scores, seg_type=seg_type)
 
-def build_exp_visualizations(instances: List[str], experiment_xai_dir: str, xai_instances_metadata: Dict[str, Any]):
-    args = [(instance, experiment_xai_dir, xai_instances_metadata) for instance in instances]
+def build_exp_visualizations(instances: List[str], experiment_xai_dir: str, xai_instances_metadata: Dict[str, Any], seg_type: str = None):
+    args = [(instance, experiment_xai_dir, xai_instances_metadata, seg_type) for instance in instances]
 
     with ProcessPoolExecutor(mp_context=mp.get_context("spawn")) as executor:
         futures = {executor.submit(_build_visualization_worker, a): a[0] for a in args}

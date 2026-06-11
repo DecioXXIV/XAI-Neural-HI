@@ -51,7 +51,7 @@ if __name__ == "__main__":
     
     # Generate explanations for the retrieved instances
     explain_instances(explainer, instances, labels, EXPERIMENT_XAI_DIR, XAI_INSTANCES_METADATA)
-    build_exp_visualizations(instances, EXPERIMENT_XAI_DIR, XAI_INSTANCES_METADATA)
+    build_exp_visualizations(instances, EXPERIMENT_XAI_DIR, XAI_INSTANCES_METADATA, SEG_TYPE)
     
     add_end_timestamp_to_xai_metadata(EXPERIMENT_ID, XAI_METADATA, XAI_ALGORITHM, XAI_ENTRY, str(datetime.now()))
     del explainer, model
