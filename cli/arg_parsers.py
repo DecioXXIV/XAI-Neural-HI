@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 from argparse import ArgumentParser, ArgumentTypeError
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 from src import CLASSIFIERS, METRICS, OPTIMIZERS, LR_SCHEDULERS, FT_MODES, TRAIN_AUG_TRANSFORMS, EXPLAINERS, SEGMENTATIONS, INK_SEG_GRANULARITIES, INK_SEG_GROUPING_METHODS
 from data import DATASETS, SCRIBES_TO_DATASET
@@ -272,4 +272,52 @@ def _validate_retraining_args(args):
         logger.warning(f"No random_seed provided. Using '{random_seed}' (randomly generated).")
 
     return experiment_id, xai_algorithm, xai_entry, original_ts_ratio, new_ts_ratio, selection_rule, start_point, batch_size, lr, lr_scheduler, lr_final_decay_ratio, weight_decay, label_smoothing, early_stopping, early_stopping_patience, random_seed, epochs, train_img_transforms, ft_mode, keep_crops
+
+### ######### ###
+### STABILITY ###
+### ######### ###
+def get_stability_args():
+    parser = ArgumentParser()
+    parser.add_argument("-experiment_id", type=str, required=True)
+    parser.add_argument("-xai_algorithm", type=str, required=True, choices=EXPLAINERS)
+    parser.add_argument("-xai_root_entry", type=str, required=True)
+    return parser.parse_args()
+
+### ##################### ###
+### CROSS-MODEL AGREEMENT ###
+### ##################### ###
+def get_cm_agreement_args():
+    parser = ArgumentParser()
+    parser.add_argument("-exp_id1", type=str, required=True)
+    parser.add_argument("-exp_id2", type=str, required=True)
+    parser.add_argument("-xai_algorithm", type=str, required=True, choices=EXPLAINERS)
+    parser.add_argument("-xai_entry1", type=str, required=True)
+    parser.add_argument("-xai_entry2", type=str, required=True)
+    parser.add_argument("-n_bootstrap", type=int, default=20000)
+    parser.add_argument("-random_seed", type=int, default=None)
+    return parser.parse_args()
+
+def validate_cm_agreement_args(exp_id1: str, exp_id2: str, xai_algorithm: str, xai_entry1: str, xai_entry2: str, xai_exp1_metadata: Dict[str, Any], xai_exp2_metadata: Dict[str, Any], n_bootstrap: int):
+    error_trigger = False
     
+    if xai_algorithm not in xai_exp1_metadata or xai_algorithm not in xai_exp2_metadata:
+        error_trigger = True
+        logger.critical(f"It's not possible to assess cross-model agreement if '{xai_algorithm}' has not been exploited for both of them!")
+        if xai_algorithm not in xai_exp1_metadata:
+            logger.critical(f"More specifically: '{xai_algorithm}' has not been exploited to explain the classifier for '{exp_id1}'")
+        elif xai_algorithm not in xai_exp2_metadata:
+            logger.critical(f"More specifically: '{xai_algorithm}' has not been exploited to explain the classifier for '{exp_id2}'")
+    
+    if xai_algorithm in xai_exp1_metadata and xai_entry1 not in xai_exp1_metadata[xai_algorithm]:
+        error_trigger = True
+        logger.critical(f"'{xai_entry1}' configuration has not been used to generate explanations for '{exp_id1}' with '{xai_algorithm}'.")
+    
+    if xai_algorithm in xai_exp2_metadata and xai_entry2 not in xai_exp2_metadata[xai_algorithm]:
+        error_trigger = True
+        logger.critical(f"'{xai_entry2}' configuration has not been used to generate explanations for '{exp_id2}' with '{xai_algorithm}'.")
+    
+    if n_bootstrap < 2:
+        error_trigger = True
+        logger.critical(f"'n_bootstrap' must be at least 2.")
+    
+    if error_trigger: sys.exit()
