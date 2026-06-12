@@ -1,14 +1,14 @@
 import os
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Any
 
 from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.data.dataset_utils import get_dataset_instances
 
 class ExplainedTestInstancesRetriever:
-    def __init__(self, experiment_id: str, dataset: str, classes: List[str], xai_algorithm: str, xai_entry: str, xai_instances_metadata: Dict[str, str] ):
+    def __init__(self, experiment_id: str, xai_algorithm: str, xai_entry: str, exp_metadata: Dict[str, Any], xai_instances_metadata: Dict[str, str] ):
         self.experiment_id = experiment_id
-        self.dataset = dataset
-        self.classes = classes
+        self.dataset = exp_metadata["DATASET"]
+        self.classes = exp_metadata["CLASSES"]
         self.xai_algorithm = xai_algorithm
         self.xai_entry = xai_entry
         self.xai_instances_metadata = xai_instances_metadata

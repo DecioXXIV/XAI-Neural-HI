@@ -18,16 +18,16 @@ from src.utils.data.dataloaders import TrainDataLoader, TestDataLoader
 logger = Logger()
 
 class ModelTrainer:
-    def __init__(self, base_dir: str, model: nn.Module, train_dl: TrainDataLoader, val_dl: TestDataLoader, device: str, ft_metadata: Dict[str, Any], last_cp: Dict[str, Any] | None = None):
+    def __init__(self, base_dir: str, model: nn.Module, last_cp: Dict[str, Any] | None, train_dl: TrainDataLoader, val_dl: TestDataLoader, ft_metadata: Dict[str, Any], device: str):
         self.base_dir = base_dir
         self.model = model
+        self.last_cp = last_cp
         self.train_dl = train_dl
         self.val_dl = val_dl
-        self.device = device
         self.ft_metadata = ft_metadata
-        self.last_cp = last_cp
-        self._current_epoch: int = ft_metadata["FINE_TUNING_DETAILS"].get("EPOCHS_COMPLETED", 0) + 1
+        self.device = device
 
+        self._current_epoch: int = ft_metadata["FINE_TUNING_DETAILS"].get("EPOCHS_COMPLETED", 0) + 1
         self.metric = ft_metadata["HYPERPARAMETERS"]["metric"]
         self.optimizer_type = ft_metadata["HYPERPARAMETERS"]["optimizer"]
         self.lr = ft_metadata["HYPERPARAMETERS"]["lr"]

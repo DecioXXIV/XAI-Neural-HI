@@ -25,15 +25,14 @@ if __name__ == "__main__":
     EXPERIMENT_FT_DIR = os.path.join(EXPERIMENTS_ROOT, EXPERIMENT_ID, "fine_tuning")
     os.makedirs(EXPERIMENT_FT_DIR, exist_ok=True)
     
-    MODEL_NAME, DATASET, CLASSES = EXP_METADATA.get("MODEL_NAME"), EXP_METADATA.get("DATASET"), EXP_METADATA.get("CLASSES")
     DEVICE = setup_device()
     
     logger.info(f"*** Experiment: {EXPERIMENT_ID} -> START OF FINE TUNING-PROCESS ***\n")
     
     ### PHASE 1: DATASET CREATION ###
     logger.info("PHASE 1 -> DATASET CREATION")
-    create_dataset(EXPERIMENT_FT_DIR, DATASET, CLASSES, TRAIN_REPLICAS, CROP_SIZE)
-    mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
+    create_dataset(EXPERIMENT_FT_DIR, TRAIN_REPLICAS, CROP_SIZE, EXP_METADATA)
+    mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, EXP_METADATA)
     
     logger.info(f"Dataset creation completed!\n")
     
@@ -44,11 +43,11 @@ if __name__ == "__main__":
         logger.info(f"PHASE 2 -> MODEL FINE-TUNING")
         set_random_seed(RANDOM_SEED)
         
-        model, last_cp = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", DEVICE, FT_METADATA)
+        model, last_cp = load_model(EXPERIMENT_FT_DIR, "train", EXP_METADATA, FT_METADATA, DEVICE)
         
-        train_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "train"), CLASSES, "train", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE, RANDOM_SEED, TRAIN_TRANSFORMS)
-        val_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "val"), CLASSES, "val", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
-        train_model(EXPERIMENT_FT_DIR, model, train_dl, val_dl, DEVICE, FT_METADATA, FT_METADATA_PATH, last_cp)
+        train_dl = get_dataloader(EXPERIMENT_FT_DIR, "train", model.get_input_size(), mean_, std_, EXP_METADATA, FT_METADATA, DEVICE)
+        val_dl = get_dataloader(EXPERIMENT_FT_DIR, "val", model.get_input_size(), mean_, std_, EXP_METADATA, FT_METADATA, DEVICE)
+        train_model(EXPERIMENT_FT_DIR, model, last_cp, train_dl, val_dl, FT_METADATA_PATH, FT_METADATA, DEVICE)
 
         add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_FINE_TUNING", str(datetime.now()))
         del model, last_cp, train_dl, val_dl
@@ -62,16 +61,16 @@ if __name__ == "__main__":
     else:
         logger.info(f"PHASE 3 -> MODEL TESTING")
         
-        mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
-        model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", DEVICE, FT_METADATA)
-        test_dl = get_dataloader(os.path.join(EXPERIMENT_FT_DIR, "test"), CLASSES, "test", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
-        test_model(EXPERIMENT_FT_DIR, model, test_dl, DEVICE, FT_METADATA, EXP_METADATA)
+        mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, EXP_METADATA)
+        model, _ = load_model(EXPERIMENT_FT_DIR, "test", EXP_METADATA, FT_METADATA, DEVICE)
+        test_dl = get_dataloader(EXPERIMENT_FT_DIR, "test", model.get_input_size(), mean_, std_, EXP_METADATA, FT_METADATA, DEVICE)
+        test_model(EXPERIMENT_FT_DIR, model, test_dl, EXP_METADATA, FT_METADATA, DEVICE)
         
         add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_TESTING", str(datetime.now()))
         del model, test_dl
         cleanup_memory(DEVICE)
         logger.info("Model testing completed successfully!\n")
 
-    if not KEEP_CROPS: remove_subdirectories(EXPERIMENT_FT_DIR, DATASET, CLASSES)
+    if not KEEP_CROPS: remove_subdirectories(EXPERIMENT_FT_DIR, EXP_METADATA)
     
     logger.info(f"*** Experiment: {EXPERIMENT_ID} -> END OF FINE TUNING-PROCESS ***\n")

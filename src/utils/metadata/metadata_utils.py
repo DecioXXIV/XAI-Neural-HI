@@ -32,7 +32,8 @@ def initialize_ft_metadata(experiment_id: str, ft_metadata: Dict[str, Any], metr
     if "HYPERPARAMETERS" not in ft_metadata:
         ft_metadata["HYPERPARAMETERS"] = {"metric": metric, "ch_layers": ch_layers, "crop_size": crop_size, "batch_size": batch_size, "optimizer": opt, "lr": lr,
                                           "lr_scheduler": lr_scheduler, "lr_final_decay_ratio": lr_final_decay_ratio, "weight_decay": weight_decay, "label_smoothing": label_smoothing, 
-                                          "early_stopping": early_stopping, "early_stopping_patience": early_stopping_patience, "train_replicas": train_replicas, "random_seed": random_seed, "total_epochs": epochs, "train_transforms": train_transforms, "ft_mode": ft_mode}
+                                          "early_stopping": early_stopping, "early_stopping_patience": early_stopping_patience, "train_replicas": train_replicas, "random_seed": random_seed, 
+                                          "total_epochs": epochs, "train_transforms": train_transforms, "ft_mode": ft_mode}
     if "FINE_TUNING_DETAILS" not in ft_metadata: ft_metadata["FINE_TUNING_DETAILS"] = {}
     if "TIMESTAMPS" not in ft_metadata: ft_metadata["TIMESTAMPS"] = {}
     
@@ -127,7 +128,7 @@ def initialize_retrain_metadata(experiment_id: str, retrain_metadata: Dict[str, 
                                                "selection_rule": selection_rule, "metric": metric, "ch_layers": ch_layers, "crop_size": crop_size, "batch_size": batch_size, "optimizer": opt, "lr": lr, 
                                                "lr_scheduler": lr_scheduler, "lr_final_decay_ratio": lr_final_decay_ratio, "weight_decay": weight_decay, "label_smoothing": label_smoothing, 
                                                "early_stopping": early_stopping, "early_stopping_patience": early_stopping_patience, "random_seed": random_seed, "total_epochs": epochs, 
-                                               "train_img_transforms": train_img_transforms, "ft_mode": ft_mode, "start_point": start_point}
+                                               "train_transforms": train_img_transforms, "ft_mode": ft_mode, "start_point": start_point}
     if "FINE_TUNING_DETAILS" not in retrain_metadata: retrain_metadata["FINE_TUNING_DETAILS"] = {}
     if "TIMESTAMPS" not in retrain_metadata: retrain_metadata["TIMESTAMPS"] = {}
     

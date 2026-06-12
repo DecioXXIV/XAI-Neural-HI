@@ -29,13 +29,11 @@ if __name__ == "__main__":
     EXPERIMENT_RETRAIN_DIR  = os.path.join(EXPERIMENT_RETRAIN_ROOT, f"{FT_MODE}-{START_POINT}", SELECTION_RULE, f"original{ORIGINAL_TS_RATIO}-new{NEW_TS_RATIO}", f"random_seed{RANDOM_SEED}")
     os.makedirs(EXPERIMENT_RETRAIN_DIR, exist_ok=True)
     
-    MODEL_NAME, DATASET, CLASSES = EXP_METADATA.get("MODEL_NAME"), EXP_METADATA.get("DATASET"), EXP_METADATA.get("CLASSES")
-    CH_LAYERS, CROP_SIZE, TRAIN_REPLICAS = FT_METADATA["HYPERPARAMETERS"]["ch_layers"], FT_METADATA["HYPERPARAMETERS"]["crop_size"], FT_METADATA["HYPERPARAMETERS"]["train_replicas"]
-    mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
+    mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, EXP_METADATA)
     
     DEVICE = setup_device()
     
-    model, _ = load_model(EXPERIMENT_FT_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", DEVICE, FT_METADATA)
+    model, _ = load_model(EXPERIMENT_FT_DIR, "test", EXP_METADATA, FT_METADATA, DEVICE)
     model.to(DEVICE)
     model.eval()
     
@@ -43,25 +41,25 @@ if __name__ == "__main__":
     logger.info(f"XAI Algorithm: {XAI_ALGORITHM} | XAI Entry: {XAI_ENTRY} | Selection Rule: {SELECTION_RULE}")
     logger.info(f"Original Training Set Ratio: {ORIGINAL_TS_RATIO} | New Training Set Ratio: {NEW_TS_RATIO} | Random Seed: {RANDOM_SEED}\n")
     
-    retrieve_original_dataset(EXPERIMENT_RETRAIN_ROOT, DATASET, CLASSES, CROP_SIZE)
+    retrieve_original_dataset(EXPERIMENT_RETRAIN_ROOT, EXP_METADATA, FT_METADATA)
     
     print()
     logger.info("PHASE 1 -> FT2 TRAINING SET CREATION")
 
     if SELECTION_RULE == "saliency":
-        n_memory_crops_to_cls, n_new_crops_to_cls = compute_ft2_crop_counts(EXPERIMENT_RETRAIN_ROOT, CLASSES, ORIGINAL_TS_RATIO, NEW_TS_RATIO)
+        n_memory_crops_to_cls, n_new_crops_to_cls = compute_ft2_crop_counts(EXPERIMENT_RETRAIN_ROOT, ORIGINAL_TS_RATIO, NEW_TS_RATIO, EXP_METADATA)
         # Dict[str, int]: {class_name: num_crops}
 
-        retrieve_ft1_train_crops_coordinates(EXPERIMENT_RETRAIN_ROOT, DATASET, CLASSES, CROP_SIZE)
-        compute_memory_scores(EXPERIMENT_RETRAIN_ROOT, XAI_ALGORITHM,EXPERIMENT_XAI_DIR, model, CLASSES, BATCH_SIZE, CROP_SIZE, mean_, std_, DEVICE)
-        extract_memory_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, CLASSES, n_memory_crops_to_cls)
+        retrieve_ft1_train_crops_coordinates(EXPERIMENT_RETRAIN_ROOT, EXP_METADATA, FT_METADATA)
+        compute_memory_scores(EXPERIMENT_RETRAIN_ROOT, XAI_ALGORITHM, EXPERIMENT_XAI_DIR, model, mean_, std_, EXP_METADATA, FT_METADATA, DEVICE)
+        extract_memory_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, n_memory_crops_to_cls, EXP_METADATA)
 
-        retrieve_xai_guided_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_XAI_DIR, DATASET, CLASSES, CROP_SIZE, mean_)
-        compute_openness_scores(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_XAI_DIR, model, CLASSES, BATCH_SIZE, CROP_SIZE, mean_, std_, DEVICE)
-        extract_xai_guided_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, EXPERIMENT_XAI_DIR, CLASSES, n_new_crops_to_cls)
+        retrieve_xai_guided_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_XAI_DIR, mean_, EXP_METADATA, FT_METADATA)
+        compute_openness_scores(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_XAI_DIR, model, mean_, std_, EXP_METADATA, FT_METADATA, DEVICE)
+        extract_xai_guided_crops(EXPERIMENT_RETRAIN_ROOT, EXPERIMENT_RETRAIN_DIR, EXPERIMENT_XAI_DIR, n_new_crops_to_cls, EXP_METADATA)
 
     else: # SELECTION_RULE == "random"
-        extract_random_crops(EXPERIMENT_RETRAIN_DIR, EXPERIMENT_FT_DIR, EXPERIMENT_XAI_DIR, DATASET, CLASSES, CROP_SIZE, ORIGINAL_TS_RATIO, NEW_TS_RATIO, RANDOM_SEED, mean_)
+        extract_random_crops(EXPERIMENT_RETRAIN_DIR, EXPERIMENT_FT_DIR, EXPERIMENT_XAI_DIR, ORIGINAL_TS_RATIO, NEW_TS_RATIO, RANDOM_SEED, mean_, EXP_METADATA, FT_METADATA)
     
     if "MODEL_FINE_TUNING" in RETRAIN_METADATA["TIMESTAMPS"]:
         logger.warning("Skipping PHASE 3 (Model Re-Training): it has already been completed!\n")
@@ -69,13 +67,14 @@ if __name__ == "__main__":
         logger.info(f"PHASE 3 -> MODEL RE-TRAINING")
         set_random_seed(RANDOM_SEED)
         
-        if START_POINT == "from_zero": model, last_cp = load_model(EXPERIMENT_RETRAIN_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "train", DEVICE, RETRAIN_METADATA)
+        if START_POINT == "from_zero": 
+            model, last_cp = load_model(EXPERIMENT_RETRAIN_DIR, "train", EXP_METADATA, RETRAIN_METADATA, DEVICE)
         else: # START_POINT == "from_ft1"
-            model, last_cp = load_ft_model(EXPERIMENT_FT_DIR, EXPERIMENT_RETRAIN_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, DEVICE, RETRAIN_METADATA)
+            model, last_cp = load_ft_model(EXPERIMENT_FT_DIR, EXPERIMENT_RETRAIN_DIR, EXP_METADATA, RETRAIN_METADATA, DEVICE)
         
-        train_dl = get_dataloader(os.path.join(EXPERIMENT_RETRAIN_DIR, "train"), CLASSES, "train", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE, RANDOM_SEED, TRAIN_TRANSFORMS)
-        val_dl = get_dataloader(os.path.join(EXPERIMENT_RETRAIN_ROOT, "val"), CLASSES, "val", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
-        train_model(EXPERIMENT_RETRAIN_DIR, model, train_dl, val_dl, DEVICE, RETRAIN_METADATA, RETRAIN_METADATA_PATH, last_cp)
+        train_dl = get_dataloader(EXPERIMENT_RETRAIN_DIR, "train", model.get_input_size(), mean_, std_, EXP_METADATA, RETRAIN_METADATA, DEVICE)
+        val_dl = get_dataloader(EXPERIMENT_RETRAIN_ROOT, "val", model.get_input_size(), mean_, std_, EXP_METADATA, RETRAIN_METADATA, DEVICE)
+        train_model(EXPERIMENT_RETRAIN_DIR, model, last_cp, train_dl, val_dl, RETRAIN_METADATA_PATH, RETRAIN_METADATA, DEVICE)
         
         add_timestamp_to_retrain_metadata(RETRAIN_METADATA, RETRAIN_METADATA_PATH, "MODEL_FINE_TUNING", str(datetime.now()))
         torch.cuda.empty_cache()
@@ -87,13 +86,12 @@ if __name__ == "__main__":
     else:
         logger.info(f"PHASE 4 -> MODEL TESTING")
         
-        mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, DATASET, CLASSES)
-        model, _ = load_model(EXPERIMENT_RETRAIN_DIR, MODEL_NAME, CLASSES, FT_MODE, CH_LAYERS, "test", DEVICE, RETRAIN_METADATA)
-        test_dl = get_dataloader(os.path.join(EXPERIMENT_RETRAIN_ROOT, "test"), CLASSES, "test", BATCH_SIZE, model.get_input_size(), mean_, std_, DEVICE)
+        mean_, std_ = get_train_rgb_mean_std(EXPERIMENT_FT_DIR, EXP_METADATA)
+        model, _ = load_model(EXPERIMENT_RETRAIN_DIR, "test", EXP_METADATA, RETRAIN_METADATA, DEVICE)
+        test_dl = get_dataloader(EXPERIMENT_RETRAIN_ROOT, "test", model.get_input_size(), mean_, std_, EXP_METADATA, RETRAIN_METADATA, DEVICE)
         
-        # os.system(f"cp {os.path.join(EXPERIMENT_RETRAIN_ROOT, 'n_crops_per_instance.json')} {os.path.join(EXPERIMENT_RETRAIN_DIR, 'n_crops_per_instance.json')}")
         shutil.copyfile(os.path.join(EXPERIMENT_RETRAIN_ROOT, "n_crops_per_instance.json"), os.path.join(EXPERIMENT_RETRAIN_DIR, "n_crops_per_instance.json"))
-        test_model(EXPERIMENT_RETRAIN_DIR, model, test_dl, DEVICE, RETRAIN_METADATA, EXP_METADATA)
+        test_model(EXPERIMENT_RETRAIN_DIR, model, test_dl, EXP_METADATA, RETRAIN_METADATA, DEVICE)
         
         logger.info("Model testing completed successfully!\n")
         
@@ -102,4 +100,5 @@ if __name__ == "__main__":
         
         logger.info(f"*** Experiment: {EXPERIMENT_ID} -> END OF RETRAINING-PROCESS ***\n")
         
-        if not KEEP_CROPS: remove_subdirectories(EXPERIMENT_RETRAIN_DIR, DATASET, CLASSES)
+        if not KEEP_CROPS: remove_subdirectories(EXPERIMENT_RETRAIN_DIR, EXP_METADATA)
+        

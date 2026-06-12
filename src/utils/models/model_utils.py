@@ -12,21 +12,23 @@ from src.utils.logger import Logger
 
 logger = Logger()
 
-def load_model(base_dir: str, model_name: str, classes: List[str], ft_mode: str, ch_layers: str, phase: str, device: str, ft_metadata: Dict[str, Any]) -> Tuple[nn.Module, Dict[str, Any]]:
+def load_model(base_dir: str, phase: str, exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], device: str) -> Tuple[nn.Module, Dict[str, Any]]:
+    model_name, classes = exp_metadata["MODEL_NAME"], exp_metadata["CLASSES"]
+    ft_mode, ch_layers = ft_metadata["HYPERPARAMETERS"]["ft_mode"], ft_metadata["HYPERPARAMETERS"]["ch_layers"]
     model_loader = ModelLoader(base_dir, model_name, classes, ft_mode, phase, ft_metadata)
     return model_loader(ch_layers.split(','), device)
 
-def train_model(base_dir: str, model: nn.Module, train_dl: TrainDataLoader, val_dl: TestDataLoader,
-                device: str, ft_metadata: Dict[str, Any], ft_metadata_path: str, last_cp: Dict[str, Any] | None) -> None:
-    model_trainer = ModelTrainer(base_dir, model, train_dl, val_dl, device, ft_metadata, last_cp)
+def train_model(base_dir: str, model: nn.Module, last_cp: Dict[str, Any] | None, train_dl: TrainDataLoader, val_dl: TestDataLoader,
+                ft_metadata_path: str, ft_metadata: Dict[str, Any], device: str):
+    model_trainer = ModelTrainer(base_dir, model, last_cp, train_dl, val_dl, ft_metadata, device)
     model_trainer(ft_metadata_path)
 
     training_recap_writer = TrainingRecapWriter(base_dir)
     training_recap_writer()
 
-def test_model(base_dir: str, model: nn.Module, test_dl: TestDataLoader, device: str, ft_metadata: Dict[str, Any], exp_metadata: Dict[str, Any]) -> None:
+def test_model(base_dir: str, model: nn.Module, test_dl: TestDataLoader, exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], device: str):
     _, t_dl = test_dl.load_data()
-    model_tester = ModelTester(base_dir, model, t_dl, device, ft_metadata, exp_metadata)
+    model_tester = ModelTester(base_dir, model, t_dl, exp_metadata, ft_metadata, device)
     crop_labels, crop_preds, crop_logits, crop_probs, crop_preds_per_page, page_labels, page_preds = model_tester()
 
     testing_recap_writer = TestingRecapWriter(base_dir, t_dl)

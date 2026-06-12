@@ -9,7 +9,9 @@ from tqdm import tqdm
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 
+from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.logger import Logger
+from src.utils.fine_tuning.general_utils import get_train_rgb_mean_std
 from src.utils.explain.xai_image_preprocessor import XaiImagePreprocessor
 from src.utils.explain.xai_visual_explanation_builder import XaiVisualExplanationBuilder
 from src.explainers.base_explainers import BaseExplainer
@@ -19,14 +21,16 @@ from src.explainers.occlusion_explainer import OcclusionExplainer
 
 logger = Logger()
 
-def setup_explainer(xai_algorithm: str, xai_entry: str, model: nn.Module, mean_: List[float], std_: List[float], ft_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], device: str) -> Any:
+def setup_explainer(experiment_id: str, xai_algorithm: str, xai_entry: str, model: nn.Module, exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], device: str) -> Any:
     logger.info(f"Setting up the {xai_algorithm} Explainer...")
     
-    if xai_algorithm == "Lime": return LimeExplainer(xai_entry, model, mean_, std_, ft_metadata, xai_metadata, device)
-    elif xai_algorithm == "GLimeBinomial": return GLimeBinomialExplainer(xai_entry, model, mean_, std_, ft_metadata, xai_metadata, device)
-    elif xai_algorithm == "Occlusion": return OcclusionExplainer(xai_entry, model, mean_, std_, ft_metadata, xai_metadata, device)
+    if xai_algorithm == "Lime": return LimeExplainer(experiment_id, xai_entry, model, exp_metadata, ft_metadata, xai_metadata, device)
+    elif xai_algorithm == "GLimeBinomial": return GLimeBinomialExplainer(experiment_id, xai_entry, model, exp_metadata, ft_metadata, xai_metadata, device)
+    elif xai_algorithm == "Occlusion": return OcclusionExplainer(experiment_id, xai_entry, model, exp_metadata, ft_metadata, xai_metadata, device)
 
-def execute_pages_preprocessing(instance_paths: List[str], crop_size: int, mean_: List[float], xai_algorithm: str, xai_entry: str, xai_metadata: Dict[str, Any], experiment_xai_dir: str, xai_instances_metadata: Dict[str, Any]):
+def execute_pages_preprocessing(experiment_id: str, instance_paths: List[str], crop_size: int, xai_algorithm: str, xai_entry: str, exp_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], experiment_xai_dir: str, xai_instances_metadata: Dict[str, Any]):
+    experiment_ft_dir = os.path.join(EXPERIMENTS_ROOT, experiment_id, "fine_tuning")
+    mean_, _ = get_train_rgb_mean_std(experiment_ft_dir, exp_metadata)
     img_preprocessor = XaiImagePreprocessor(xai_algorithm, xai_entry, xai_metadata, crop_size, mean_)
 
     def process_instance(instance_path: str):
@@ -65,9 +69,6 @@ def _build_visualization_worker(args: tuple):
     visualization_paths = [
         os.path.join(page_xai_dir, f"{instance_name}_visual_exp.png"),
         os.path.join(page_xai_dir, f"{instance_name}_interactive.html"),
-        os.path.join(page_xai_dir, f"{instance_name}_interactive.css"),
-        os.path.join(page_xai_dir, f"{instance_name}_interactive_data.js"),
-        os.path.join(page_xai_dir, f"{instance_name}_interactive.js"),
         os.path.join(page_xai_dir, f"{instance_name}_segment_id_map.png"),
         os.path.join(page_xai_dir, f"{instance_name}_interactive_scores.json")
     ]

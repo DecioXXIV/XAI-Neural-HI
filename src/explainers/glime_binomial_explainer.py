@@ -1,19 +1,18 @@
 import torch.nn as nn
 import numpy as np
 from functools import partial
-from typing import List, Dict, Any
+from typing import Dict, Any
 from math import comb
 
 from src.explainers.base_explainers import BaseLimeExplainer
 
 class GLimeBinomialExplainer(BaseLimeExplainer):
-    def __init__(self, xai_entry: str, model: nn.Module, mean_: List[float], std_: List[float], ft_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], device: str):
-        super().__init__(xai_entry, model, mean_, std_, ft_metadata, xai_metadata, device)
+    def __init__(self, experiment_id: str, xai_entry: str, model: nn.Module, exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], device: str):
+        super().__init__(experiment_id, xai_entry, model, exp_metadata, ft_metadata, xai_metadata, device)
         
+        self.seg_type = self.xai_metadata["GLimeBinomial"][self.xai_entry]["HYPERPARAMETERS"]["seg_type"]
         self.kernel_width = self.xai_metadata["GLimeBinomial"][self.xai_entry]["HYPERPARAMETERS"]["kernel_width"]
         self.num_samples = self.xai_metadata["GLimeBinomial"][self.xai_entry]["HYPERPARAMETERS"]["num_samples"]
-        self.seg_type = self.xai_metadata["GLimeBinomial"][self.xai_entry]["HYPERPARAMETERS"]["seg_type"]
-        
         self.kernel_fn = partial(self._kernel, kernel_width=self.kernel_width)
     
     def generate_perturbed_binary_vectors(self, crop_segments: np.ndarray, sp_names: np.ndarray) -> np.ndarray:

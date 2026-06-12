@@ -23,7 +23,7 @@ from src.utils.retrain.memory_crop_selector import MemoryCropSelector
 
 logger = Logger()
 
-def retrieve_original_dataset(base_dir: str, dataset: str, classes: List[str], crop_size: int):
+def retrieve_original_dataset(base_dir: str, exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any]):
     train_subdir = os.path.join(base_dir, "train")
     val_subdir = os.path.join(base_dir, "val")
     test_subdir = os.path.join(base_dir, "test")
@@ -31,12 +31,15 @@ def retrieve_original_dataset(base_dir: str, dataset: str, classes: List[str], c
     if os.path.exists(train_subdir) and os.path.exists(val_subdir) and os.path.exists(test_subdir):
         logger.warning(f"Skipping original dataset retrieval since '{train_subdir}', '{val_subdir}' and '{test_subdir}' already exist.")
         
-    else: create_dataset(base_dir, dataset, classes, 1, crop_size)
+    else: 
+        crop_size = ft_metadata["HYPERPARAMETERS"]["crop_size"]
+        create_dataset(base_dir, 1, crop_size, exp_metadata)
 
-def compute_ft2_crop_counts(base_dir: str, classes: List[str], original_ts_ratio: float, new_ts_ratio: float) -> Tuple[Dict[str, int], Dict[str, int]]:
+def compute_ft2_crop_counts(base_dir: str, original_ts_ratio: float, new_ts_ratio: float, exp_metadata: Dict[str, Any]) -> Tuple[Dict[str, int], Dict[str, int]]:
     memory_crops, new_crops = {}, {}
     
     train_subdir = os.path.join(base_dir, "train")
+    classes = exp_metadata["CLASSES"]
     for cls in classes:
         class_files = os.listdir(os.path.join(train_subdir, cls))
         memory_crops[cls] = int(np.ceil(len(class_files) * original_ts_ratio))
@@ -44,16 +47,18 @@ def compute_ft2_crop_counts(base_dir: str, classes: List[str], original_ts_ratio
     
     return memory_crops, new_crops
 
-def retrieve_ft1_train_crops_coordinates(base_dir: str, dataset: str, classes: List[str], crop_size: int):
+def retrieve_ft1_train_crops_coordinates(base_dir: str, exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any]):
     coords_path = os.path.join(base_dir, "coords_to_ft1_train_crop.json")
     
     if os.path.exists(coords_path): logger.warning(f"Skipping coordinates retrieval for FT1 train crops: it has been already done!")
     else:
         logger.info("Retrieving coordinates for FT1 train crops...")
+        dataset, classes = exp_metadata["DATASET"], exp_metadata["CLASSES"]
+        crop_size = ft_metadata["HYPERPARAMETERS"]["crop_size"]
         coordinates_to_ft1_train_crop = FT1TrainCropsCoordinatesRetriever(base_dir, dataset, classes, crop_size)()
         with open(coords_path, 'w') as f: json.dump(coordinates_to_ft1_train_crop, f, indent=4)
 
-def compute_memory_scores(base_dir: str, xai_algorithm: str, experiment_xai_dir: str, model: nn.Module, classes: List[str], batch_size: int, crop_size: int, mean_: List[float], std_: List[float], device: str):
+def compute_memory_scores(base_dir: str, xai_algorithm: str, experiment_xai_dir: str, model: nn.Module, mean_: List[float], std_: List[float], exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], device: str):
     mem_scores_path = os.path.join(base_dir, "memory_scores.csv")
     
     if os.path.exists(mem_scores_path): logger.warning(f"Skipping memory scores computation: it has been already done!")
@@ -61,6 +66,8 @@ def compute_memory_scores(base_dir: str, xai_algorithm: str, experiment_xai_dir:
     else:
         logger.info("Computing memory scores for FT1 train crops...")
         
+        classes = exp_metadata["CLASSES"]
+        batch_size, crop_size = ft_metadata["HYPERPARAMETERS"]["batch_size"], ft_metadata["HYPERPARAMETERS"]["crop_size"]
         dataset, loader = TestDataLoader(os.path.join(base_dir, "train"), classes, batch_size, crop_size, mean_, std_, device).load_data()
         paths = [s[0] for s in dataset.samples]
         pages = [os.path.splitext(os.path.basename(p))[0].split('_')[0] for p in paths]
@@ -102,10 +109,11 @@ def _adjust_confidences(confidences: List[float]) -> List[float]:
         return [c if c > 0.0 else eps for c in confidences]
     return confidences
 
-def extract_memory_crops(base_dir: str, dst_dir: str, classes: List[str], n_memory_crops_to_cls: Dict[str, int]) -> Dict[str, int]:
+def extract_memory_crops(base_dir: str, dst_dir: str, n_memory_crops_to_cls: Dict[str, int], exp_metadata: Dict[str, Any]) -> Dict[str, int]:
     mem_scores_df = pd.read_csv(os.path.join(base_dir, "memory_scores.csv"), header=0)
     selector = MemoryCropSelector(mem_scores_df)
-
+    
+    classes = exp_metadata["CLASSES"]
     for cls in classes:
         dst_class_dir = os.path.join(dst_dir, "train", cls)
         os.makedirs(dst_class_dir, exist_ok=True)
@@ -114,13 +122,14 @@ def extract_memory_crops(base_dir: str, dst_dir: str, classes: List[str], n_memo
         for crop in selected_crops: shutil.copyfile(crop, os.path.join(dst_class_dir, os.path.basename(crop)))
         logger.info(f"Class '{cls}': {len(selected_crops)} memory crops extracted.")
 
-def retrieve_xai_guided_crops(base_dir: str, experiment_xai_dir: str, dataset: str, classes: List[str], crop_size: int, mean_: List[float]):
+def retrieve_xai_guided_crops(base_dir: str, experiment_xai_dir: str, mean_: List[float], exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any]):
     coords_to_xai_crop_path = os.path.join(base_dir, "coords_to_xai_crop.json")
     
     if os.path.exists(coords_to_xai_crop_path):
         logger.warning(f"Skipping XAI-guided crops retrieval: it has been already done!")
     
     else:
+        crop_size = ft_metadata["HYPERPARAMETERS"]["crop_size"]
         max_overflow = int(0.1 * crop_size)
         mean_int = tuple(m * 255 for m in mean_)
         
@@ -175,6 +184,7 @@ def retrieve_xai_guided_crops(base_dir: str, experiment_xai_dir: str, dataset: s
             return page_crop_paths, page_crop_coords
         
         logger.info("Retrieving XAI-guided crops...")
+        dataset, classes = exp_metadata["DATASET"], exp_metadata["CLASSES"]
         for cls in classes: os.makedirs(os.path.join(base_dir, "xai_crops", cls), exist_ok=True)
         
         instance_paths = get_dataset_instances(dataset, classes, "train")
@@ -190,13 +200,15 @@ def retrieve_xai_guided_crops(base_dir: str, experiment_xai_dir: str, dataset: s
         coords_to_xai_crop_path = os.path.join(base_dir, "coords_to_xai_crop.json")
         with open(coords_to_xai_crop_path, 'w') as f: json.dump(coords_to_xai_crop, f, indent=4)
 
-def compute_openness_scores(base_dir: str, experiment_xai_dir: str, model: nn.Module, classes: List[str], batch_size: int, crop_size: int, mean_: List[float], std_: List[float], device: str):
+def compute_openness_scores(base_dir: str, experiment_xai_dir: str, model: nn.Module, mean_: List[float], std_: List[float], exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], device: str):
     opennes_scores_path = os.path.join(base_dir, "openness_scores.csv")
     
     if os.path.exists(opennes_scores_path): logger.warning(f"Skipping openness scores computation: it has been already done!")
     
     else:
         logger.info("Computing openness scores for XAI-guided crops...")
+        classes = exp_metadata["CLASSES"]
+        batch_size, crop_size = ft_metadata["HYPERPARAMETERS"]["batch_size"], ft_metadata["HYPERPARAMETERS"]["crop_size"]
         
         dataset, loader = TestDataLoader(os.path.join(base_dir, "xai_crops"), classes, batch_size, crop_size, mean_, std_, device).load_data()
         paths = [s[0] for s in dataset.samples]
@@ -226,10 +238,10 @@ def compute_openness_scores(base_dir: str, experiment_xai_dir: str, model: nn.Mo
         openness_scores["openness"] = openness_scores["difficulty"] * openness_scores["green_evidence"] * openness_scores["green_ink_fraction"]
         openness_scores.to_csv(opennes_scores_path, index=False, header=True)
 
-def extract_xai_guided_crops(base_dir: str, dst_dir: str, experiment_xai_dir: str, classes: List[str], new_to_class: Dict[str, int]):
+def extract_xai_guided_crops(base_dir: str, dst_dir: str, experiment_xai_dir: str, new_to_class: Dict[str, int], exp_metadata: Dict[str, Any]):
     openness_scores_df = pd.read_csv(os.path.join(base_dir, "openness_scores.csv"), header=0)
     selector = OpennessCropSelector(openness_scores_df, experiment_xai_dir)
-
+    classes = exp_metadata["CLASSES"]
     for cls in classes:
         dst_class_dir = os.path.join(dst_dir, "train", cls)
         os.makedirs(dst_class_dir, exist_ok=True)
@@ -238,7 +250,8 @@ def extract_xai_guided_crops(base_dir: str, dst_dir: str, experiment_xai_dir: st
         for crop in selected_crops: shutil.copyfile(crop, os.path.join(dst_class_dir, os.path.basename(crop)))
         logger.info(f"Class '{cls}': {len(selected_crops)} XAI-guided crops extracted.")
 
-def extract_random_crops(dst_dir: str, experiment_ft_dir: str, experiment_xai_dir: str, dataset: str, classes: List[str], crop_size: int, original_ts_ratio: float, new_ts_ratio: float, random_seed: int, mean_: List[float]):
+def extract_random_crops(dst_dir: str, experiment_ft_dir: str, experiment_xai_dir: str, original_ts_ratio: float, new_ts_ratio: float, random_seed: int, mean_: List[float], exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any]):
+    dataset, classes = exp_metadata["DATASET"], exp_metadata["CLASSES"]
     instance_paths = get_dataset_instances(dataset, classes, "train")
     with open(os.path.join(experiment_ft_dir, "n_crops_per_instance.json"), 'r') as f: n_crops_per_instance = json.load(f)
     
@@ -248,6 +261,7 @@ def extract_random_crops(dst_dir: str, experiment_ft_dir: str, experiment_xai_di
         n_crops_for_cls[cls] = n_crops_for_cls.get(cls, 0) + n_crops_per_instance["train"][p]
     
     rng = np.random.default_rng(random_seed)
+    crop_size = ft_metadata["HYPERPARAMETERS"]["crop_size"]
     max_overflow = int(0.1 * crop_size)
     mean_int = tuple(m * 255 for m in mean_)
 
@@ -292,6 +306,8 @@ def extract_random_crops(dst_dir: str, experiment_ft_dir: str, experiment_xai_di
                 Image.fromarray(crop_arr).save(os.path.join(dst_train_class_subdir, f"{page_name}_random{idx}.png"))
         logger.info(f"Class '{cls}': {n_to_extract} random crops extracted.")
 
-def load_ft_model(experiment_ft_dir: str, experiment_retrain_dir: str, model_name: str, classes: List[str], ft_mode: str, ch_layers: str, device: str, ft_metadata: Dict[str, Any]) -> Tuple[nn.Module, Dict[str, Any]]:
-    model_loader = FineTunedToRetrainModelLoader(experiment_ft_dir, experiment_retrain_dir, model_name, classes, ft_mode, ft_metadata)
+def load_ft_model(experiment_ft_dir: str, experiment_retrain_dir: str, exp_metadata: Dict[str, Any], retrain_metadata: Dict[str, Any], device: str) -> Tuple[nn.Module, Dict[str, Any]]:
+    model_name, classes = exp_metadata["MODEL_NAME"], exp_metadata["CLASSES"]
+    ft_mode, ch_layers = retrain_metadata["HYPERPARAMETERS"]["ft_mode"], retrain_metadata["HYPERPARAMETERS"]["ch_layers"]
+    model_loader = FineTunedToRetrainModelLoader(experiment_ft_dir, experiment_retrain_dir, model_name, classes, ft_mode, retrain_metadata)
     return model_loader(ch_layers.split(','), device)

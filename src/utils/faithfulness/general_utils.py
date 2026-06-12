@@ -40,7 +40,8 @@ def get_masker(experiment_id: str, xai_algorithm: str, xai_entry: str, seg_type:
     
     return maskers[seg_type][mask_rule](experiment_id, xai_algorithm, xai_entry, mask_rates, patches_color, masking_color, global_seed)
 
-def create_test_sets(experiment_id: str, xai_algorithm: str, xai_entry: str, faith_entry: str, mask_rates: List[float], xai_instances_metadata: Dict[str, Any], dataset: str, classes: List[str], crop_size: int):
+def create_test_sets(experiment_id: str, xai_algorithm: str, xai_entry: str, faith_entry: str, mask_rates: List[float], crop_size: int, exp_metadata: Dict[str, Any], xai_instances_metadata: Dict[str, Any], ):
+    dataset, classes = exp_metadata["DATASET"], exp_metadata["CLASSES"]
     instance_names = list(xai_instances_metadata["INSTANCES"].keys())
 
     # Map each instance name to its class by scanning the test split of the dataset

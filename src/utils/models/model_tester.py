@@ -10,13 +10,13 @@ from src.utils.logger import Logger
 logger = Logger()
 
 class ModelTester:
-    def __init__(self, base_dir: str, model: nn.Module, test_dl: DataLoader, device: str, ft_metadata: Dict[str, Any], exp_metadata: Dict[str, Any]):
+    def __init__(self, base_dir: str, model: nn.Module, test_dl: DataLoader, exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], device: str):
         self.base_dir = base_dir
         self.model = model
         self.test_dl = test_dl
-        self.device = device
-        self.ft_metadata = ft_metadata
         self.exp_metadata = exp_metadata
+        self.ft_metadata = ft_metadata
+        self.device = device
 
         self.c_to_idx = test_dl.dataset.class_to_idx
         self.idx_to_c = {v: k for k, v in self.c_to_idx.items()}

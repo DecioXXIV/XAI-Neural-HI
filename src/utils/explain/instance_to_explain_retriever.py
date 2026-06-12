@@ -1,14 +1,14 @@
 import os, json
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 from src.utils.constants import EXPERIMENTS_ROOT, DATA_ROOT
 
 class InstanceToExplainRetriever:
-    def __init__(self, experiment_id: str, model_name: str, dataset: str, classes: int, subsample: str):
+    def __init__(self, experiment_id: str, exp_metadata: Dict[str, Any], subsample: str):
         self.experiment_id = experiment_id
-        self.model_name = model_name
-        self.dataset = dataset
-        self.classes = classes
+        self.model_name = exp_metadata["MODEL_NAME"]
+        self.dataset = exp_metadata["DATASET"]
+        self.classes = exp_metadata["CLASSES"]
         self.subsample = subsample
         
         with open(os.path.join(EXPERIMENTS_ROOT, self.experiment_id, "fine_tuning", "class_to_idx.json"), "r") as f:

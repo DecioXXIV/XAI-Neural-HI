@@ -1,4 +1,5 @@
 import os, PIL, json
+import pickle as pkl
 import torch
 import torch.nn as nn
 import numpy as np
@@ -10,16 +11,20 @@ from PIL import Image
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
 
+from src.utils.constants import EXPERIMENTS_ROOT
+from src.utils.fine_tuning.general_utils import get_train_rgb_mean_std
 class BaseExplainer(ABC):
-    def __init__(self, xai_entry: str, model: nn.Module, mean_: List[float], std_: List[float], ft_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], device: str):
+    def __init__(self, experiment_id: str, xai_entry: str, model: nn.Module, exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], device: str):
+        self.experiment_id = experiment_id
         self.xai_entry = xai_entry
         self.model = model
-        self.mean_ = mean_
-        self.std_ = std_
+        self.exp_metadata = exp_metadata
         self.ft_metadata = ft_metadata
         self.xai_metadata = xai_metadata
         self.device = device
         
+        experiment_ft_dir = os.path.join(EXPERIMENTS_ROOT, self.experiment_id, "fine_tuning")
+        self.mean_, self.std_ = get_train_rgb_mean_std(experiment_ft_dir, self.exp_metadata)
         self.batch_size = ft_metadata["HYPERPARAMETERS"]["batch_size"]
         self.crop_size = ft_metadata["HYPERPARAMETERS"]["crop_size"]
         
@@ -137,8 +142,8 @@ class BaseExplainer(ABC):
         return {int(k): float(v) for k, v in zip(keys, norm_values)}
 
 class BaseLimeExplainer(BaseExplainer):
-    def __init__(self, xai_entry: str, model: nn.Module, mean_: List[float], std_: List[float], ft_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], device: str):
-        super().__init__(xai_entry, model, mean_, std_, ft_metadata, xai_metadata, device)
+    def __init__(self, experiment_id: str, xai_entry: str, model: nn.Module, exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], device: str):
+        super().__init__(experiment_id, xai_entry, model, exp_metadata, ft_metadata, xai_metadata, device)
         self.model_regressor = Ridge(alpha=1.0, fit_intercept=False)
     
     @staticmethod

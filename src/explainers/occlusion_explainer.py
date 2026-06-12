@@ -2,13 +2,13 @@ import os, json
 import torch.nn as nn
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Any, Tuple
+from typing import Dict, Any, Tuple
 
 from src.explainers.base_explainers import BaseExplainer
 
 class OcclusionExplainer(BaseExplainer):
-    def __init__(self, xai_entry: str, model: nn.Module, mean_: List[float], std_: List[float], ft_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], device: str):
-        super().__init__(xai_entry, model, mean_, std_, ft_metadata, xai_metadata, device)
+    def __init__(self, experiment_id: str, xai_entry: str, model: nn.Module, exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], device: str):
+        super().__init__(experiment_id, xai_entry, model, exp_metadata, ft_metadata, xai_metadata, device)
         
         self.seg_type = self.xai_metadata["Occlusion"][self.xai_entry]["HYPERPARAMETERS"]["seg_type"]
     

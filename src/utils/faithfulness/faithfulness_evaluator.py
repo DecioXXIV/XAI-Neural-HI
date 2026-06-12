@@ -44,12 +44,11 @@ class FaithfulnessEvaluator:
         try: self._probs_report = pd.read_csv(self.faith_probs_report_path, header=0)
         except Exception as e: self._probs_report = pd.DataFrame()
     
-    def __call__(self, model: nn.Module, classes: List[str], mean_: List[float], std_: List[float], exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], device: str):
+    def __call__(self, model: nn.Module, mean_: List[float], std_: List[float], exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], device: str):
         logger.info(f"*** BEGINNING OF FAITHFULNESS EVALUATION -> Experiment: {self.experiment_id} | XAI Algorithm: {self.xai_algorithm} | XAI Entry: {self.xai_entry} | Faithfulness Entry: {self.faith_entry} ***")
         
         cl_accuracies, cl_macrof1s, pl_accuracies, pl_macrof1s = [], [], [], []
-        batch_size, crop_size = ft_metadata["HYPERPARAMETERS"]["batch_size"], ft_metadata["HYPERPARAMETERS"]["crop_size"]
-        sorted_classes = sorted(classes)
+        sorted_classes = sorted(exp_metadata["CLASSES"])
         report_frames: List[pd.DataFrame] = []
         probs_frames:  List[pd.DataFrame] = []
 
@@ -69,10 +68,10 @@ class FaithfulnessEvaluator:
             else:
                 logger.info(f"Evaluating faithfulness for mask rate: {mr}")
                 current_test_set_dir = os.path.join(EXPERIMENTS_ROOT, self.experiment_id, "faithfulness", self.xai_algorithm, self.xai_entry, self.faith_entry, "test_sets", str(mr))
-                test_dataloader = get_dataloader(current_test_set_dir, classes, "test", batch_size, model.get_input_size(), mean_, std_, device)
+                test_dataloader = get_dataloader(current_test_set_dir, "", model.get_input_size(), mean_, std_, exp_metadata, ft_metadata, device)
                 dataset, test_dl = test_dataloader.load_data()
 
-                model_tester = ModelTester(self.experiment_ft_dir, model, test_dl, device, ft_metadata, exp_metadata)
+                model_tester = ModelTester(self.experiment_ft_dir, model, test_dl, exp_metadata, ft_metadata, device)
                 cl_labels, cl_preds, cl_logits, cl_probs, crop_preds_per_page, pl_labels, pl_preds = model_tester()
 
                 cl_accuracy, pl_accuracy = accuracy_score(cl_labels, cl_preds), accuracy_score(pl_labels, pl_preds)
