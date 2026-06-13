@@ -12,6 +12,8 @@ from src.utils.metadata.metadata_handler import MetadataHandler
 from src.utils.faithfulness.patch_indexer import PatchIndexer
 from src.maskers.image_masker import ImageMasker
 
+MASKING_RESULTS_COLUMNS = ["patch_id", "score", "left_pixel", "top_pixel", "right_pixel", "bottom_pixel", "area"]
+
 class SqPatchesImageMasker(ImageMasker):
     def _build_masking_results(self, instance_name: str) -> pd.DataFrame:
         xai_instance_dir = os.path.join(EXPERIMENTS_ROOT, self.experiment_id, "xai", self.xai_algorithm, self.xai_entry, instance_name)
@@ -26,7 +28,7 @@ class SqPatchesImageMasker(ImageMasker):
             bb = bboxes[patch_id]
             rows.append([patch_id, score, bb["left"], bb["top"], bb["right"], bb["bottom"], bb["area"]])
 
-        df = pd.DataFrame(rows, columns=["patch_id", "score", "left_pixel", "top_pixel", "right_pixel", "bottom_pixel", "area"])
+        df = pd.DataFrame(rows, columns=MASKING_RESULTS_COLUMNS)
         os.makedirs(os.path.join(self.masking_root, "masking_results"), exist_ok=True)
         df.to_csv(os.path.join(self.masking_root, "masking_results", f"{instance_name}_masking_results.csv"), index=False)
         return df
