@@ -13,6 +13,8 @@ from sklearn.metrics import r2_score
 
 from src.utils.constants import EXPERIMENTS_ROOT
 from src.utils.fine_tuning.general_utils import get_train_rgb_mean_std
+from src.utils.explain.ink_based_masking_utils import build_ink_masking_cache, replace_ink_segments_from_cache
+
 class BaseExplainer(ABC):
     def __init__(self, experiment_id: str, xai_entry: str, model: nn.Module, exp_metadata: Dict[str, Any], ft_metadata: Dict[str, Any], xai_metadata: Dict[str, Any], device: str):
         self.experiment_id = experiment_id
@@ -33,10 +35,11 @@ class BaseExplainer(ABC):
     
     def explain_page(self, page: PIL.Image.Image, label: int, segments: np.ndarray, crop_coordinates_df: pd.DataFrame, page_xai_dir: str):
         crops = self._retrieve_crops(page, crop_coordinates_df, page_xai_dir)
+        page_replacement = None if self.seg_type == "ink_based" else self._build_replacement_image(np.array(page))
         crop_r2s = {}
         with tqdm(total=len(crops), position=0, leave=True, dynamic_ncols=True) as pbar:
             for i, crop in enumerate(crops):
-                r2 = self._explain_crop(crop, crop_coordinates_df.loc[i], segments, label, page_xai_dir)
+                r2 = self._explain_crop(crop, crop_coordinates_df.loc[i], segments, page_replacement, label, page_xai_dir)
                 crop_name = crop_coordinates_df.iloc[i]["crop_id"]
                 if crop_name not in crop_r2s and r2 is not None: crop_r2s[crop_name] = r2
                 pbar.update(1)
@@ -52,28 +55,32 @@ class BaseExplainer(ABC):
         aggregated_page_scores = self._normalize_scores(aggregated_raw_page_scores)
         with open(os.path.join(page_xai_dir, "aggregated_scores.json"), "w") as f: json.dump(aggregated_page_scores, f, indent=4)
 
-    def _explain_crop(self, crop: PIL.Image.Image, crop_df_row: pd.Series, segments: np.ndarray, label: int, page_xai_dir: str) -> float | None:
+    def _build_replacement_image(self, page_arr: np.ndarray) -> np.ndarray:
+        replacement = np.zeros_like(page_arr)
+        replacement[:] = [255 * m for m in self.mean_]
+        return replacement
+
+    def _explain_crop(self, crop: PIL.Image.Image, crop_df_row: pd.Series, segments: np.ndarray, page_replacement: np.ndarray | None, label: int, page_xai_dir: str) -> float | None:
         crop_name = crop_df_row["crop_id"]
         crop_xai_dir = os.path.join(page_xai_dir, "crops", crop_name)
         crop_scores_path = os.path.join(crop_xai_dir, "scores.json")
         
         crop_arr = np.array(crop) if isinstance(crop, PIL.Image.Image) else crop
-        # crop_arr.shape -> (crop_size, crop_size, 3); values in [0, 255] (np.uint8)
-        fudged_crop = np.zeros_like(crop_arr)
-        fudged_crop[:] = [255 * m for m in self.mean_]
         
         left, top, right, bottom = crop_df_row[["left_pixel", "top_pixel", "right_pixel", "bottom_pixel"]]
         right_pad, bottom_pad = crop_df_row[["padding_right", "padding_bottom"]]
         crop_segments = segments[top:bottom+bottom_pad+1, left:right+right_pad+1]
+        replacement_crop = None if self.seg_type == "ink_based" else page_replacement[top:bottom+bottom_pad+1, left:right+right_pad+1]
         
         if not os.path.exists(crop_scores_path):
             sp_names = np.unique(crop_segments)
+            ink_masking_cache = build_ink_masking_cache(crop_arr, crop_segments, sp_names) if self.seg_type == "ink_based" else None
             
             # Build binary vectors
             bin_vectors = self.generate_perturbed_binary_vectors(crop_segments, sp_names)
             
             # Generate samples and get predictions
-            preds = self.generate_and_predict_samples_images(crop_arr, bin_vectors, crop_segments, sp_names, fudged_crop, crop_xai_dir)
+            preds = self.generate_and_predict_samples_images(crop_arr, bin_vectors, crop_segments, sp_names, replacement_crop, ink_masking_cache, crop_xai_dir)
             
             # Compute attribution scores
             crop_raw_attr_scores, r2 = self.compute_attr_scores(bin_vectors, preds, label, crop_segments, sp_names)
@@ -94,14 +101,19 @@ class BaseExplainer(ABC):
     @abstractmethod
     def generate_perturbed_binary_vectors(self, crop_segments: np.ndarray, sp_names: np.ndarray) -> np.ndarray: pass
     
-    def generate_and_predict_samples_images(self, crop: np.ndarray, perturbed_bin_vectors: np.ndarray, crop_segments: np.ndarray, sp_names: np.ndarray, fudged_crop: np.ndarray, crop_xai_dir: str) -> np.ndarray:
+    def generate_and_predict_samples_images(self, crop: np.ndarray, perturbed_bin_vectors: np.ndarray, crop_segments: np.ndarray, sp_names: np.ndarray, replacement_crop: np.ndarray | None, ink_masking_cache: dict[int, dict] | None, crop_xai_dir: str) -> np.ndarray:
         samples, preds, samples_infos = [], [], {}
         
         for i, row in enumerate(perturbed_bin_vectors):
             pert_sample = np.copy(crop)
             sp_idxs_to_zero = np.where(row == 0)[0]
-            mask = np.isin(crop_segments, sp_names[sp_idxs_to_zero])
-            pert_sample[mask] = fudged_crop[mask]
+            sp_names_to_zero = sp_names[sp_idxs_to_zero]
+
+            if self.seg_type == "ink_based":
+                replace_ink_segments_from_cache(pert_sample, sp_names_to_zero, ink_masking_cache)
+            else:
+                mask = np.isin(crop_segments, sp_names_to_zero)
+                pert_sample[mask] = replacement_crop[mask]
             samples.append(Image.fromarray(pert_sample))
             
             samples_infos[f"sample_{i}"] = {
