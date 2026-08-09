@@ -21,18 +21,16 @@ setup_experiment
         v
       explain
         |
-        +----------------+----------------+--------------------+
-        |                |                |                    |
-        v                v                v                    v
-  faithfulness       stability     cross_model_agreement   retraining
+        +----------------+----------------+
+        |                |                |
+        v                v                v
+  faithfulness       stability     cross_model_agreement
 ```
 
 The comparison stages depend on completed explanations:
 
 - **Stability** compares multiple explanation runs for the same trained model.
 - **Cross-model agreement** compares explanations produced by two experiments.
-- **Retraining** uses explanations of training pages to construct a second
-  training set.
 
 ## Main stages
 
@@ -44,7 +42,6 @@ The comparison stages depend on completed explanations:
 | Faithfulness | `src/faithfulness.py` | Measure performance as salient regions are removed | [Faithfulness](docs/FAITHFULNESS.md) |
 | Stability | `src/stability.py` | Compare repeated explanation configurations | [Stability](docs/STABILITY.md) |
 | Cross-model agreement | `src/cross_model_agreement.py` | Compare explanations from two trained experiments | [Cross-model agreement](docs/CROSS_MODEL_AGREEMENT.md) |
-| Retraining | `src/retrain.py` | Train a second model using random or XAI-guided crops | [Retraining](docs/RETRAINING.md) |
 
 ## Repository layout
 
