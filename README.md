@@ -1,5 +1,5 @@
 ![Python](https://img.shields.io/badge/Python-3.11.2-3776AB?logo=python&logoColor=white)
-# Faithful XAI for Neural Handwriting Identification
+# Page-level Explanations for Neural Handwriting Identification
 
 This repository implements an experiment-oriented pipeline for neural writer
 identification on manuscript pages. It trains a crop-level image classifier,
