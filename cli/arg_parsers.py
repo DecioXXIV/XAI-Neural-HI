@@ -95,16 +95,15 @@ def _validate_ft_args(args):
     if train_replicas <= 0: 
         logger.critical("train_replicas must be a positive integer")
         error_trigger = True
+    if random_seed is not None and random_seed < 0:
+        logger.critical("random_seed must be a non-negative integer")
+        error_trigger = True
     if epochs <= 0: 
         logger.critical("epochs must be a positive integer")
         error_trigger = True
     
     if error_trigger: sys.exit()
     
-    if random_seed is None or random_seed < 0:
-        random_seed = int(np.random.randint(0, 2**32 - 1))
-        logger.warning(f"No random_seed provided or invalid value. Using '{random_seed}' (randomly generated).")
-
     return experiment_id, metric, ch_layers, crop_size, batch_size, opt, lr, lr_scheduler, lr_final_decay_ratio, weight_decay, label_smoothing, early_stopping, early_stopping_patience, train_replicas, random_seed, epochs, train_transforms, ft_mode, keep_crops
 
 ### ####### ###

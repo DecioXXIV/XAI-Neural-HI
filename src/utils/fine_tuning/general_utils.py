@@ -1,4 +1,5 @@
 import os, json
+import numpy as np
 from typing import List, Tuple, Dict, Any
 
 from src.utils.logger import Logger
@@ -7,6 +8,31 @@ from src.utils.fine_tuning.train_rgb_mean_std_computer import TrainRGBMeanStdCom
 from src.utils.data.dataloaders import TrainDataLoader, TestDataLoader
 
 logger = Logger()
+
+def resolve_ft_random_seed(random_seed: int | None, ft_metadata: Dict[str, Any]) -> int:
+    """Resolve the single random seed associated with a fine-tuning run.
+
+    Once FT metadata exist, their seed is authoritative so that rerunning a
+    pipeline reconstructs the same random dataset and training sequence.
+    """
+    hyperparameters = ft_metadata.get("HYPERPARAMETERS")
+    stored_seed = hyperparameters.get("random_seed") if hyperparameters is not None else None
+
+    if stored_seed is not None:
+        if random_seed is not None and random_seed != stored_seed:
+            raise ValueError(
+                f"Fine-tuning metadata already define random_seed={stored_seed}, "
+                f"but received random_seed={random_seed}. Use a new experiment ID to change the seed."
+            )
+        logger.info(f"Using random_seed '{stored_seed}' stored in fine-tuning metadata.")
+        return stored_seed
+
+    if random_seed is None:
+        random_seed = int(np.random.randint(0, 2**32))
+        logger.warning(f"No random_seed provided. Using '{random_seed}' (randomly generated).")
+
+    if hyperparameters is not None: hyperparameters["random_seed"] = random_seed
+    return random_seed
 
 def create_dataset(experiment_ft_dir: str, train_replicas: int, crop_size: int, exp_metadata: Dict[str, Any]):  
     dataset, classes = exp_metadata["DATASET"], exp_metadata["CLASSES"]

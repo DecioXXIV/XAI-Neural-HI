@@ -5,7 +5,7 @@ from cli.arg_parsers import get_ft_args
 from src.utils.constants import METADATA_ROOT, EXPERIMENTS_ROOT
 from src.utils.logger import Logger
 from src.utils.metadata.metadata_utils import get_experiment_metadata, get_ft_metadata, initialize_ft_metadata, add_timestamp_to_ft_metadata
-from src.utils.fine_tuning.general_utils import create_dataset, get_train_rgb_mean_std, get_dataloader, remove_subdirectories
+from src.utils.fine_tuning.general_utils import create_dataset, resolve_ft_random_seed, get_train_rgb_mean_std, get_dataloader, remove_subdirectories
 from src.utils.models.model_utils import cleanup_memory, load_model, train_model, test_model, setup_device, set_random_seed
 
 logger = Logger()
@@ -19,6 +19,7 @@ if __name__ == "__main__":
     
     EXP_METADATA = get_experiment_metadata(EXPERIMENT_ID)
     FT_METADATA = get_ft_metadata(EXPERIMENT_ID)
+    RANDOM_SEED = resolve_ft_random_seed(RANDOM_SEED, FT_METADATA)
     FT_METADATA = initialize_ft_metadata(EXPERIMENT_ID, FT_METADATA, METRIC, CH_LAYERS, CROP_SIZE, BATCH_SIZE, OPTIMIZER, LR, LR_SCHEDULER, LR_FINAL_DECAY_RATIO, WEIGHT_DECAY, LABEL_SMOOTHING, EARLY_STOPPING, EARLY_STOPPING_PATIENCE, TRAIN_REPLICAS, RANDOM_SEED, EPOCHS, TRAIN_TRANSFORMS, FT_MODE)
     FT_METADATA_PATH = os.path.join(METADATA_ROOT, EXPERIMENT_ID, "ft-metadata.json")
     
