@@ -47,9 +47,12 @@ if __name__ == "__main__":
         
         train_dl = get_dataloader(EXPERIMENT_FT_DIR, "train", model.get_input_size(), mean_, std_, EXP_METADATA, FT_METADATA, DEVICE)
         val_dl = get_dataloader(EXPERIMENT_FT_DIR, "val", model.get_input_size(), mean_, std_, EXP_METADATA, FT_METADATA, DEVICE)
+        start_ft = datetime.now()
         train_model(EXPERIMENT_FT_DIR, model, last_cp, train_dl, val_dl, FT_METADATA_PATH, FT_METADATA, DEVICE)
+        end_ft = datetime.now()
 
-        add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_FINE_TUNING", str(datetime.now()))
+        add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "MODEL_FINE_TUNING", str(end_ft))
+        add_timestamp_to_ft_metadata(EXPERIMENT_ID, FT_METADATA, "FINE_TUNING_DURATION", str(end_ft - start_ft))
         del model, last_cp, train_dl, val_dl
         cleanup_memory(DEVICE)
         
