@@ -142,7 +142,7 @@ class BaseExplainer(ABC):
     @abstractmethod
     def aggregate_crop_scores(self, crops_df: pd.DataFrame, crop_r2s: Dict[str, float], page_xai_dir: str) -> Tuple[Dict[int, float], Dict[int, float]]: pass
     
-    def _normalize_scores(self, raw_scores: Dict[int, float], percentile: int = 99) -> Dict[int, float]:
+    def _normalize_scores_OLD(self, raw_scores: Dict[int, float], percentile: int = 99) -> Dict[int, float]:
         keys, values = list(raw_scores.keys()), np.array(list(raw_scores.values()))
         sorted_values = np.sort(values)
         
@@ -151,6 +151,20 @@ class BaseExplainer(ABC):
         threshold = sorted_values[threshold_id]
         norm_values = values / threshold
         
+        return {int(k): float(v) for k, v in zip(keys, norm_values)}
+
+    def _normalize_scores(self, raw_scores: Dict[int, float], percentile: int = 99, epsilon: float = 1e-12) -> Dict[int, float]:
+        keys, values = list(raw_scores.keys()), np.asarray(list(raw_scores.values()), dtype=np.float64)
+
+        absolute_values = np.abs(values)
+        scale = float(np.quantile(absolute_values, percentile / 100.0))
+        if scale <= epsilon:
+            significant_absolute_values = absolute_values[absolute_values > epsilon]
+            if significant_absolute_values.size == 0:
+                return {int(k): 0.0 for k in keys}
+            scale = float(np.quantile(significant_absolute_values, percentile / 100.0))
+
+        norm_values = values / scale
         return {int(k): float(v) for k, v in zip(keys, norm_values)}
 
 class BaseLimeExplainer(BaseExplainer):
