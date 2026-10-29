@@ -75,12 +75,12 @@ data/<dataset>/test/<class>/<page image>
 
 Supported datasets and class identifiers are declared in `data/__init__.py`:
 
-| Dataset | Available classes |
-|---|---|
-| `Vat.lat.653` | `1`, `2`, `3`, `4` |
-| `Vat.lat.5951` | `1`, `2`, `3` |
-| `Vat.lat.4221` | `1`, `4`, `6`, `8` |
-| `Chelles` | `01` through `10` |
+| Dataset | Available classes | Dataset URL(s) |
+|---|---| --- |
+| `Vat.lat.653` | `1`, `2`, `3`, `4` | [Link](https://digi.vatlib.it/view/MSS_Vat.lat.653) |
+| `Vat.lat.5951` | `1`, `2`, `3` | [Link](https://digi.vatlib.it/view/MSS_Vat.lat.5951) |
+| `Vat.lat.4221` | `1`, `4`, `6`, `8` | [Link](https://digi.vatlib.it/view/MSS_Vat.lat.4221) |
+| `Chelles` | `01` through `10` | [Link to 'Koln 63'](https://digital.dombibliothek-koeln.de/urn/urn:nbn:de:hbz:kn28-3-326), [Link to 'Koln 65'](https://digital.dombibliothek-koeln.de/urn/urn:nbn:de:hbz:kn28-3-3100), [Link to 'Koln 67'](https://digital.dombibliothek-koeln.de/urn/urn:nbn:de:hbz:kn28-3-1958) |
 
 ## Quick start
 
